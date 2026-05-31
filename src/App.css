@@ -66,6 +66,19 @@
   box-shadow: 0 0 10px rgba(255, 74, 122, 0.05);
 }
 
+.badge-primary-circle {
+  background: var(--primary);
+  color: white;
+  padding: 1px 6px;
+  font-size: 0.7rem;
+  border-radius: var(--radius-full);
+  margin-left: 4px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* 2. Main Dashboard & Workspace Map Layout */
 .app-workspace {
   display: grid;
@@ -73,15 +86,6 @@
   height: calc(100vh - 72px);
   overflow: hidden;
   position: relative;
-}
-
-@media (max-width: 1024px) {
-  .app-workspace {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr;
-    height: auto;
-    min-height: calc(100vh - 72px);
-  }
 }
 
 /* Left Sidebar for Filtering & List */
@@ -92,14 +96,6 @@
   background: rgba(18, 18, 23, 0.9);
   height: 100%;
   overflow-y: auto;
-}
-
-@media (max-width: 1024px) {
-  .sidebar-panel {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    height: 50vh;
-  }
 }
 
 /* Map Container Styles */
@@ -203,6 +199,7 @@
   padding: 12px;
   cursor: pointer;
   position: relative;
+  text-align: left;
 }
 
 .spot-card.selected {
@@ -215,7 +212,6 @@
   width: 90px;
   height: 90px;
   border-radius: var(--radius-md);
-  object-fit: crop;
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid var(--border);
@@ -267,20 +263,13 @@
   color: var(--accent);
 }
 
-.spot-card-actions {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 20;
-}
-
 /* Spot Detail Overlay Panel */
 .detail-overlay-panel {
   position: absolute;
   bottom: 24px;
-  left: 414px;
-  right: 24px;
-  max-width: 600px;
+  left: 24px;
+  width: calc(100% - 48px);
+  max-width: 520px;
   z-index: 1000;
   pointer-events: auto;
   display: flex;
@@ -288,22 +277,9 @@
   overflow: hidden;
 }
 
-@media (max-width: 1024px) {
-  .detail-overlay-panel {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    max-width: 100%;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    margin: 0;
-    z-index: 2000;
-  }
-}
-
 .detail-img-header {
   position: relative;
-  height: 200px;
+  height: 180px;
   width: 100%;
   overflow: hidden;
 }
@@ -358,18 +334,20 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  gap: 8px;
 }
 
 .detail-title {
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 800;
 }
 
 .detail-stats {
-  display: flex;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   background: rgba(255, 255, 255, 0.03);
-  padding: 10px 16px;
+  padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   margin-bottom: 16px;
@@ -381,13 +359,14 @@
 }
 
 .detail-stat-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .detail-stat-val {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
 }
 
@@ -396,16 +375,16 @@
 }
 
 .detail-desc {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   line-height: 1.5;
 }
 
 .detail-tip-box {
   background: rgba(139, 92, 246, 0.08);
   border-left: 3px solid var(--secondary);
-  padding: 12px 16px;
+  padding: 12px 14px;
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
   margin-bottom: 20px;
 }
@@ -421,7 +400,7 @@
 }
 
 .detail-tip-content {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-primary);
   line-height: 1.4;
 }
@@ -433,7 +412,7 @@
 
 /* 3. Course Planner Tab Layout */
 .planner-view-container {
-  padding: 32px 0;
+  padding: 24px 0;
   flex: 1;
 }
 
@@ -442,12 +421,6 @@
   grid-template-columns: 1fr 400px;
   gap: 28px;
   align-items: start;
-}
-
-@media (max-width: 900px) {
-  .planner-layout {
-    grid-template-columns: 1fr;
-  }
 }
 
 .planner-timeline {
@@ -459,8 +432,8 @@
 .planner-timeline-item {
   position: relative;
   display: flex;
-  gap: 20px;
-  padding: 20px;
+  gap: 16px;
+  padding: 16px;
   text-align: left;
 }
 
@@ -489,20 +462,36 @@
 
 .planner-timeline-details {
   flex: 1;
+  text-align: left;
 }
 
 .planner-item-title {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   margin-bottom: 4px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .planner-item-desc {
   font-size: 0.85rem;
   color: var(--text-secondary);
+}
+
+.planner-item-subinfo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.subinfo-divider {
+  display: inline;
 }
 
 .planner-timeline-action {
@@ -607,7 +596,7 @@
 
 /* 4. Anonymous Frugal Tip Board Layout */
 .board-view-container {
-  padding: 32px 0;
+  padding: 24px 0;
   flex: 1;
 }
 
@@ -615,15 +604,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
-}
-
-@media (max-width: 600px) {
-  .board-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
-  }
+  margin-bottom: 24px;
 }
 
 .board-title-group {
@@ -631,7 +612,7 @@
 }
 
 .board-subtitle {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   margin-top: 4px;
 }
@@ -816,9 +797,260 @@
   align-items: center;
 }
 
-@media (max-width: 600px) {
-  .footer-content {
+
+/* ==========================================================================
+   6. SMARTPHONE / MOBILE RESPONSIVE OPTIMIZATIONS (<= 768px)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  /* Sticky Logo Nav on top (Simple, clean, no text links) */
+  .navbar {
+    height: 60px;
+    padding: 0 16px;
+  }
+  
+  .version-label {
+    display: none !important;
+  }
+  
+  .db-badge {
+    margin-left: auto;
+    margin-right: 0px;
+  }
+
+  /* Sleek Bottom Navigation Tab Bar for native smartphone experience */
+  .nav-menu {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: rgba(18, 18, 23, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 8px;
+    margin: 0;
+    z-index: 1500;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .nav-link {
     flex-direction: column;
+    gap: 4px;
+    font-size: 0.72rem !important;
+    padding: 6px 4px !important;
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-secondary);
+    min-width: 68px;
+    box-shadow: none !important;
+  }
+
+  .nav-link span {
+    font-weight: 600;
+  }
+
+  .nav-link.active {
+    color: var(--primary) !important;
+    background: transparent !important;
+  }
+  
+  .badge-primary-circle {
+    position: absolute;
+    top: 2px;
+    right: 18px;
+    margin-left: 0;
+  }
+
+  /* Padding bottom on main content ensures bottom navigation bar never covers inputs */
+  main {
+    padding-bottom: 64px;
+  }
+
+  /* 2-Column Dashboard translates into full-screen tab layouts */
+  .app-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 60px - 64px);
+    overflow: hidden;
+  }
+
+  .sidebar-panel {
+    border-right: none;
+    height: 100%;
+    width: 100%;
+  }
+
+  /* conditonal hiding classes controlled by mobileView state */
+  .sidebar-panel.mobile-hidden {
+    display: none !important;
+  }
+
+  .map-panel.mobile-hidden {
+    display: none !important;
+  }
+  
+  .map-panel {
+    height: 100%;
+    width: 100%;
+  }
+
+  /* Floating view switcher button (Floating action button) */
+  .mobile-toggle-btn {
+    position: fixed;
+    bottom: 80px; /* comfortably above bottom navigation bar */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    box-shadow: var(--shadow-glow), 0 4px 15px rgba(0, 0, 0, 0.6);
+    border-radius: var(--radius-full);
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+    border: none !important;
+  }
+
+  /* Mobile detail popup slide up bottom drawer (Bottom Sheet Drawer) */
+  .detail-overlay-panel {
+    position: fixed;
+    bottom: 64px; /* anchors right above bottom navigation */
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    margin: 0;
+    z-index: 2000;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.7);
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    background: var(--bg-surface);
+  }
+
+  /* Drawer Drag indicator hook */
+  .detail-overlay-panel::before {
+    content: '';
+    width: 40px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-full);
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2001;
+  }
+
+  .detail-img-header {
+    height: 140px;
+    padding-top: 10px; /* space for drag bar */
+  }
+
+  .detail-body {
+    padding: 16px;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  
+  .detail-stats {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+  
+  .detail-stat-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    padding-bottom: 4px;
+  }
+  
+  .detail-stat-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  /* 2-Column Course planner sidebar stacked vertically on smartphones */
+  .planner-layout {
+    grid-template-columns: 1fr !important;
+    gap: 20px;
+  }
+
+  .planner-timeline-item {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 12px;
+  }
+  
+  .planner-timeline-content {
+    width: 100%;
+  }
+
+  .planner-item-subinfo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .subinfo-divider {
+    display: none;
+  }
+
+  /* General board header styling on mobile */
+  .board-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .board-header .btn {
+    width: 100%;
+  }
+
+  /* Grid responsive padding */
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Modal responsive scale */
+  .modal-content {
+    max-height: 85vh;
+  }
+  
+  .modal-body {
+    padding: 16px;
+  }
+  
+  .grid-two-cols {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  
+  .about-wrapper {
+    margin: 20px auto;
+  }
+  
+  .about-wrapper .glass-panel {
+    padding: 20px !important;
+  }
+  
+  .footer {
+    padding: 16px 0;
+    margin-bottom: 4px; /* clear bottom navigation slightly */
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-toggle-btn {
+    display: none !important;
   }
 }

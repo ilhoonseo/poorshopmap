@@ -7,19 +7,26 @@ import {
   MessageSquare, 
   Info, 
   Search, 
-  Filter, 
   Plus, 
   Trash2, 
   X, 
   Award, 
   Coins, 
-  TrendingDown, 
   ThumbsUp, 
-  Navigation,
   Compass,
-  Check
+  Check,
+  Smartphone,
+  Globe,
+  Database
 } from 'lucide-react';
-import { dateSpots as initialDateSpots } from './dateSpots';
+import { 
+  dbGetSpots, 
+  dbSaveSpot, 
+  dbGetTips, 
+  dbSaveTip, 
+  dbLikeTip, 
+  isSupabaseConfigured 
+} from './db';
 import './App.css';
 
 // Emojis for categories
@@ -37,55 +44,17 @@ const CATEGORY_NAMES = {
   walk: '낭만 산책'
 };
 
-// Initial community tips
-const INITIAL_TIPS = [
-  {
-    id: 'tip-1',
-    author: '홍대사랑꾼',
-    category: 'walk',
-    content: '홍대입구 경의선 숲길 책거리를 걷다가 연남동 골목길 초입 벤치에서 맥주 한 캔 나눠마셔 보세요! 2명이서 1만원 미만으로 웬만한 칵테일바 부럽지 않은 가을바람 낭만을 즐길 수 있습니다.',
-    savings: 30000,
-    likes: 42,
-    date: '2026-05-30'
-  },
-  {
-    id: 'tip-2',
-    author: '대학로고인물',
-    category: 'activity',
-    content: '혜화 대학로에서 연극 보고 싶으시면 미리 티켓 예매하지 마시고, 당일 타임티켓 어플이나 지하철역 2번 출구 앞 티켓박스에서 마감 임박 표를 구매해 보세요! 인당 1만원대 초반에 최고의 로맨틱 코미디를 즐길 수 있습니다.',
-    savings: 40000,
-    likes: 38,
-    date: '2026-05-29'
-  },
-  {
-    id: 'tip-3',
-    author: '한강로맨티스트',
-    category: 'food',
-    content: '여의도 한강공원 가실 때 2만원짜리 치킨 배달 대신 편의점에서 즉석 봉지라면 2개에 삼각김밥 사서 돗자리 펴고 드셔보세요. 한강 라면 특유의 감성이 배가 되면서 맛과 가성비 모두 챙기는 레전드 데이트가 됩니다.',
-    savings: 20000,
-    likes: 56,
-    date: '2026-05-28'
-  },
-  {
-    id: 'tip-4',
-    author: '성수동힙스터',
-    category: 'cafe',
-    content: '성수동의 비싼 인스타 감성 카페들이 지겨우시다면 서울숲 야외 공원에서 따릉이 빌려 데이트하고, 메가커피나 컴포즈커피 한잔 사서 벤치에 앉아 수다 떠는 코스를 추천합니다! 자연풍이 부는 야외 테라스나 다름없습니다.',
-    savings: 15000,
-    likes: 24,
-    date: '2026-05-27'
-  }
-];
-
 function App() {
   // Views navigation state: 'map' | 'planner' | 'board' | 'about'
   const [activeTab, setActiveTab] = useState('map');
   
-  // Spots database
-  const [spots, setSpots] = useState(() => {
-    const saved = localStorage.getItem('poor_date_spots');
-    return saved ? JSON.parse(saved) : initialDateSpots;
-  });
+  // Mobile responsive views toggle for Map screen: 'list' ( 장소 목록) | 'map' (풀 스크린 지도)
+  const [mobileView, setMobileView] = useState('list');
+
+  // Spots & Tips state loaded from hybrid DB
+  const [spots, setSpots] = useState([]);
+  const [tips, setTips] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,16 +65,10 @@ function App() {
   // Selected spot details state
   const [selectedSpot, setSelectedSpot] = useState(null);
 
-  // Planner Course State
+  // Planner Course State (always local to each couple for customized privacy)
   const [courseItems, setCourseItems] = useState(() => {
     const saved = localStorage.getItem('poor_date_course');
     return saved ? JSON.parse(saved) : [];
-  });
-
-  // Frugal Tips Board State
-  const [tips, setTips] = useState(() => {
-    const saved = localStorage.getItem('poor_date_tips');
-    return saved ? JSON.parse(saved) : INITIAL_TIPS;
   });
 
   // Liked state to prevent duplicate likes
@@ -139,22 +102,43 @@ function App() {
   const mapRef = useRef(null);
   const markersLayerRef = useRef(null);
 
-  // Persistence Effects
+  // Load spots and tips from Hybrid DB on mount
   useEffect(() => {
-    localStorage.setItem('poor_date_spots', JSON.stringify(spots));
-  }, [spots]);
+    const loadInitialData = async () => {
+      setLoading(true);
+      try {
+        const fetchedSpots = await dbGetSpots();
+        const fetchedTips = await dbGetTips();
+        setSpots(fetchedSpots);
+        setTips(fetchedTips);
+      } catch (err) {
+        console.error('Error loading hybrid DB data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadInitialData();
+  }, []);
 
+  // Save Local Course Items to LocalStorage
   useEffect(() => {
     localStorage.setItem('poor_date_course', JSON.stringify(courseItems));
   }, [courseItems]);
 
   useEffect(() => {
-    localStorage.setItem('poor_date_tips', JSON.stringify(tips));
-  }, [tips]);
-
-  useEffect(() => {
     localStorage.setItem('poor_date_liked_tips', JSON.stringify(likedTips));
   }, [likedTips]);
+
+  // Leaflet map tile rendering error solver inside display:none toggle
+  useEffect(() => {
+    if (activeTab === 'map' && mobileView === 'map' && mapRef.current) {
+      // 150ms delay ensures browser finishes layout repaint, resolving gray tile leaflet bug
+      const timer = setTimeout(() => {
+        mapRef.current.invalidateSize({ animate: true });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [mobileView, activeTab]);
 
   // Filtering Spots logic
   const filteredSpots = spots.filter(spot => {
@@ -168,7 +152,6 @@ function App() {
 
   // Map Initialization Effect
   useEffect(() => {
-    // Only initialize the map when activeTab is 'map' and the container is rendered
     if (activeTab !== 'map') {
       if (mapRef.current) {
         mapRef.current.remove();
@@ -188,7 +171,7 @@ function App() {
 
     mapRef.current = map;
 
-    // Load CartoDB Dark Matter tiles (gorgeous modern black map)
+    // Load CartoDB Dark Matter tiles (gorgeous dark aesthetics)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
@@ -217,7 +200,6 @@ function App() {
 
     // Add new markers
     filteredSpots.forEach(spot => {
-      // Custom Glowing DivIcon
       const markerHtml = `
         <div class="custom-marker marker-${spot.category}" style="font-size: 1.4rem;">
           ${CATEGORY_EMOJIS[spot.category]}
@@ -243,13 +225,12 @@ function App() {
         });
       });
 
-      // Simple hover popup
       marker.bindPopup(`
         <div style="text-align: left; font-family: 'Outfit', sans-serif;">
           <h4 style="margin: 0 0 4px 0; font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">
             ${spot.name}
           </h4>
-          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
             ${CATEGORY_NAMES[spot.category]} • ${spot.districtName}
           </span>
           <div style="margin-top: 6px; font-weight: 700; color: var(--accent); font-size: 0.85rem;">
@@ -261,35 +242,39 @@ function App() {
         offset: L.point(0, -10)
       });
 
-      // Add to map layer
       markersLayerRef.current.addLayer(marker);
     });
 
-    // Auto zoom/fit bounds if we have spots and no individual spot is selected
+    // Auto zoom/fit bounds if spots exist and no spot is selected
     if (filteredSpots.length > 0 && !selectedSpot) {
       const latlngs = filteredSpots.map(s => [s.lat, s.lng]);
-      mapRef.current.fitBounds(latlngs, { padding: [50, 50], maxZoom: 14 });
+      mapRef.current.fitBounds(latlngs, { padding: [40, 40], maxZoom: 14 });
     }
   }, [filteredSpots, selectedSpot]);
 
-  // Center map on spot when clicked in sidebar
+  // Center map on spot when clicked in list
   const handleSpotCardClick = (spot) => {
     setSelectedSpot(spot);
+    // On mobile, automatically toggle to the map when card is clicked, ensuring rich user flow
+    setMobileView('map');
     if (mapRef.current) {
-      mapRef.current.flyTo([spot.lat, spot.lng], 15, {
-        animate: true,
-        duration: 1.2
-      });
+      // Small timeout ensures leaflet container display: block is processed first
+      setTimeout(() => {
+        mapRef.current.invalidateSize();
+        mapRef.current.flyTo([spot.lat, spot.lng], 15, {
+          animate: true,
+          duration: 1.2
+        });
+      }, 100);
     }
   };
 
-  // Planner Planner operations
+  // Planner Course Operations
   const addToCourse = (spot, e) => {
     if (e) e.stopPropagation();
     
-    // Check if already exists
     if (courseItems.find(item => item.id === spot.id)) {
-      alert('이미 코스에 등록된 스팟입니다!');
+      alert('이미 코스에 등록된 장소입니다!');
       return;
     }
 
@@ -308,20 +293,32 @@ function App() {
   };
 
   // Tips operations
-  const handleLikeTip = (tipId) => {
-    if (likedTips.includes(tipId)) {
-      // Unlike
-      setTips(tips.map(t => t.id === tipId ? { ...t, likes: t.likes - 1 } : t));
+  const handleLikeTip = async (tipId) => {
+    let updatedLikes = 0;
+    const isLiked = likedTips.includes(tipId);
+    
+    const updatedTips = tips.map(t => {
+      if (t.id === tipId) {
+        updatedLikes = isLiked ? t.likes - 1 : t.likes + 1;
+        return { ...t, likes: updatedLikes };
+      }
+      return t;
+    });
+    
+    setTips(updatedTips);
+    
+    if (isLiked) {
       setLikedTips(likedTips.filter(id => id !== tipId));
     } else {
-      // Like
-      setTips(tips.map(t => t.id === tipId ? { ...t, likes: t.likes + 1 } : t));
       setLikedTips([...likedTips, tipId]);
     }
+    
+    // Sync update to Supabase centrally (if configured)
+    await dbLikeTip(tipId, updatedLikes);
   };
 
   // Submissions handlers
-  const handleReportSubmit = (e) => {
+  const handleReportSubmit = async (e) => {
     e.preventDefault();
 
     if (!reportForm.name || !reportForm.costPerPerson || !reportForm.description) {
@@ -329,7 +326,7 @@ function App() {
       return;
     }
 
-    // Generate random coordinates in Seoul vicinity
+    // Coordinates placed randomly in central Seoul
     const seoulCenter = { lat: 37.556, lng: 126.978 };
     const randomOffset = () => (Math.random() - 0.5) * 0.08;
 
@@ -356,7 +353,10 @@ function App() {
       image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=600&auto=format&fit=crop'
     };
 
-    setSpots([newSpot, ...spots]);
+    // Save to hybrid DB
+    const savedSpot = await dbSaveSpot(newSpot);
+    setSpots([savedSpot, ...spots]);
+    
     setShowReportModal(false);
     setReportForm({
       name: '',
@@ -370,7 +370,7 @@ function App() {
     alert('데이트 장소가 성공적으로 제보되었습니다! 지도에 바로 등록되었습니다.');
   };
 
-  const handleTipSubmit = (e) => {
+  const handleTipSubmit = async (e) => {
     e.preventDefault();
 
     if (!tipForm.nickname || !tipForm.content || !tipForm.savings) {
@@ -388,7 +388,10 @@ function App() {
       date: new Date().toISOString().split('T')[0]
     };
 
-    setTips([newTip, ...tips]);
+    // Save to hybrid DB
+    const savedTip = await dbSaveTip(newTip);
+    setTips([savedTip, ...tips]);
+    
     setShowAddTipModal(false);
     setTipForm({
       nickname: '',
@@ -426,10 +429,23 @@ function App() {
           <Heart className="logo-icon animate-pulse-slow" size={26} fill="var(--primary)" />
           <span className="logo-title">
             <span className="gradient-text">알뜰 데이트맵</span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '6px', fontWeight: '500' }}>
-              geojimap 커플에디션
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '6px', fontWeight: '500' }} className="version-label">
+              커플에디션
             </span>
           </span>
+        </div>
+
+        {/* Dynamic DB indicator badge */}
+        <div className="db-badge">
+          {isSupabaseConfigured ? (
+            <span className="badge badge-accent" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+              <Database size={10} style={{ marginRight: '4px' }} /> 중앙 DB 연결됨
+            </span>
+          ) : (
+            <span className="badge" style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(255,255,255,0.03)', color: 'var(--text-secondary)' }}>
+              🔒 로컬 저장 모드
+            </span>
+          )}
         </div>
 
         <nav>
@@ -451,7 +467,7 @@ function App() {
                 id="nav-planner-tab"
               >
                 <Sparkles size={18} />
-                <span>코스 빌더 {courseItems.length > 0 && <span className="badge-primary" style={{ padding: '1px 6px', fontSize: '0.7rem', borderRadius: '8px', marginLeft: '4px' }}>{courseItems.length}</span>}</span>
+                <span>코스 빌더 {courseItems.length > 0 && <span className="badge-primary-circle">{courseItems.length}</span>}</span>
               </button>
             </li>
             <li>
@@ -481,511 +497,548 @@ function App() {
       {/* Main Content Area */}
       <main style={{ flex: '1' }}>
         
-        {/* VIEW 1: MAP INTERACTIVE DASHBOARD */}
-        {activeTab === 'map' && (
-          <div className="app-workspace animate-fade-in-up">
-            
-            {/* Sidebar with Search and Listing */}
-            <aside className="sidebar-panel">
-              
-              {/* Filter Panel */}
-              <div className="search-filter-box">
-                
-                {/* Search */}
-                <div className="search-input-wrapper">
-                  <Search className="search-icon" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="맛집, 카페, 장소 검색..." 
-                    className="search-input"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    id="spot-search-field"
-                  />
-                </div>
-
-                {/* District Filter Pills */}
-                <div className="filter-pills">
-                  <button 
-                    onClick={() => setSelectedDistrict('all')} 
-                    className={`filter-pill ${selectedDistrict === 'all' ? 'active' : ''}`}
-                  >
-                    전체 지역
-                  </button>
-                  <button 
-                    onClick={() => setSelectedDistrict('hyehwa')} 
-                    className={`filter-pill ${selectedDistrict === 'hyehwa' ? 'active' : ''}`}
-                  >
-                    혜화/대학로
-                  </button>
-                  <button 
-                    onClick={() => setSelectedDistrict('hongdae')} 
-                    className={`filter-pill ${selectedDistrict === 'hongdae' ? 'active' : ''}`}
-                  >
-                    홍대/신촌
-                  </button>
-                  <button 
-                    onClick={() => setSelectedDistrict('seongsu')} 
-                    className={`filter-pill ${selectedDistrict === 'seongsu' ? 'active' : ''}`}
-                  >
-                    성수/서울숲
-                  </button>
-                  <button 
-                    onClick={() => setSelectedDistrict('gangnam')} 
-                    className={`filter-pill ${selectedDistrict === 'gangnam' ? 'active' : ''}`}
-                  >
-                    강남
-                  </button>
-                  <button 
-                    onClick={() => setSelectedDistrict('yeouido')} 
-                    className={`filter-pill ${selectedDistrict === 'yeouido' ? 'active' : ''}`}
-                  >
-                    여의도/한강
-                  </button>
-                </div>
-
-                {/* Category Filter Icons */}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
-                    onClick={() => setSelectedCategory('all')} 
-                    className={`btn btn-secondary ${selectedCategory === 'all' ? 'active' : ''}`}
-                    style={{ flex: 1, padding: '6px 0', fontSize: '0.8rem', minHeight: '36px', borderColor: selectedCategory === 'all' ? 'var(--primary)' : '' }}
-                  >
-                    전체종류
-                  </button>
-                  {Object.keys(CATEGORY_EMOJIS).map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`btn btn-secondary ${selectedCategory === cat ? 'active' : ''}`}
-                      style={{ flex: 1, padding: '6px 0', fontSize: '0.8rem', minHeight: '36px', borderColor: selectedCategory === cat ? 'var(--primary)' : '' }}
-                    >
-                      {CATEGORY_EMOJIS[cat]} {CATEGORY_NAMES[cat].split(' ')[1]}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Budget Slider */}
-                <div style={{ textAlign: 'left', marginTop: '4px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
-                    <span>1인당 예상 예산 한도</span>
-                    <span className="gradient-text">{budgetLimit.toLocaleString()}원 이하</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="20000" 
-                    step="1000" 
-                    value={budgetLimit}
-                    onChange={(e) => setBudgetLimit(parseInt(e.target.value, 10))}
-                    style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer', marginTop: '6px' }}
-                    id="budget-range-slider"
-                  />
-                </div>
-
-                {/* Fast Report Trigger */}
-                <button 
-                  onClick={() => setShowReportModal(true)} 
-                  className="btn btn-primary"
-                  style={{ width: '100%', padding: '8px', fontSize: '0.85rem' }}
-                  id="open-report-modal"
-                >
-                  <Plus size={16} />
-                  <span>나만의 알뜰 데이트 스팟 제보하기</span>
-                </button>
-              </div>
-
-              {/* Spots List */}
-              <div className="spot-list">
-                {filteredSpots.length > 0 ? (
-                  filteredSpots.map(spot => {
-                    const isAdded = courseItems.some(item => item.id === spot.id);
-                    return (
-                      <div 
-                        key={spot.id} 
-                        onClick={() => handleSpotCardClick(spot)}
-                        className={`glass-panel spot-card ${selectedSpot && selectedSpot.id === spot.id ? 'selected' : ''}`}
-                      >
-                        <img src={spot.image} alt={spot.name} className="spot-card-img" />
-                        <div className="spot-card-content">
-                          <div>
-                            <div className="spot-card-header">
-                              <h3 className="spot-card-title">{spot.name}</h3>
-                              <span className="badge badge-secondary" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                                {CATEGORY_EMOJIS[spot.category]} {spot.districtName}
-                              </span>
-                            </div>
-                            <p className="spot-card-desc">{spot.description}</p>
-                          </div>
-                          
-                          <div className="spot-card-footer">
-                            <span className="spot-price">인당 {spot.costPerPerson.toLocaleString()}원</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                isAdded ? removeFromCourse(spot.id, e) : addToCourse(spot, e);
-                              }}
-                              className={`btn ${isAdded ? 'btn-secondary' : 'btn-primary'}`}
-                              style={{ 
-                                padding: '4px 10px', 
-                                borderRadius: 'var(--radius-sm)', 
-                                fontSize: '0.75rem',
-                                color: isAdded ? 'var(--text-secondary)' : 'white'
-                              }}
-                            >
-                              {isAdded ? (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <Check size={12} /> 추가됨
-                                </span>
-                              ) : (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <Plus size={12} /> 코스추가
-                                </span>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="empty-state">
-                    <Compass size={40} className="empty-icon animate-pulse-slow" />
-                    <p style={{ fontSize: '0.9rem' }}>해당 조건에 맞는 데이트 장소가 없습니다.<br />예산 한도를 늘리거나 필터를 조절해보세요!</p>
-                  </div>
-                )}
-              </div>
-            </aside>
-
-            {/* Interactive Leaflet Map View */}
-            <section className="map-panel">
-              <div id="map-container" className="map-container-instance"></div>
-
-              {/* Detail Popup Overlay */}
-              {selectedSpot && (
-                <div className="glass-panel detail-overlay-panel animate-fade-in-up">
-                  <div className="detail-img-header">
-                    <img src={selectedSpot.image} alt={selectedSpot.name} className="detail-img" />
-                    <div className="detail-img-gradient"></div>
-                    <button 
-                      onClick={() => setSelectedSpot(null)} 
-                      className="detail-close-btn"
-                    >
-                      <X size={18} color="white" />
-                    </button>
-                    <div className="detail-badge-group">
-                      <span className="badge badge-primary">
-                        {CATEGORY_EMOJIS[selectedSpot.category]} {CATEGORY_NAMES[selectedSpot.category]}
-                      </span>
-                      <span className="badge badge-accent">
-                        📍 {selectedSpot.districtName}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="detail-body">
-                    <div className="detail-title-section">
-                      <h2 className="detail-title">{selectedSpot.name}</h2>
-                      <span className="badge badge-secondary" style={{ fontSize: '0.85rem' }}>
-                        ⭐ Couple 평점 {selectedSpot.rating}
-                      </span>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="detail-stats">
-                      <div className="detail-stat-item" style={{ flex: 1 }}>
-                        <span className="detail-stat-label">예상 지출 (2인 기준)</span>
-                        <span className="detail-stat-val">{(selectedSpot.costPerPerson * 2).toLocaleString()}원</span>
-                      </div>
-                      <div className="detail-stat-item" style={{ flex: 1 }}>
-                        <span className="detail-stat-label">절약 지수 (일반 데이트 대비)</span>
-                        <span className="detail-stat-val detail-stat-val-highlight">
-                          약 {selectedSpot.savings.toLocaleString()}원 절약!
-                        </span>
-                      </div>
-                      <div className="detail-stat-item" style={{ flex: 0.8 }}>
-                        <span className="detail-stat-label">가성비 평가 점수</span>
-                        <span className="detail-stat-val" style={{ color: 'var(--accent)' }}>
-                          🔥 {selectedSpot.frugalScore}점
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="detail-desc">{selectedSpot.description}</p>
-
-                    {/* Romantic Date Hack */}
-                    <div className="detail-tip-box">
-                      <h4 className="detail-tip-title">
-                        <Sparkles size={14} />
-                        <span>낭만 200% 알뜰 데이트 꿀팁!</span>
-                      </h4>
-                      <p className="detail-tip-content">{selectedSpot.tip}</p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="detail-actions">
-                      {courseItems.some(item => item.id === selectedSpot.id) ? (
-                        <button 
-                          onClick={(e) => removeFromCourse(selectedSpot.id, e)} 
-                          className="btn btn-secondary" 
-                          style={{ flex: 1 }}
-                        >
-                          <Trash2 size={16} />
-                          <span>데이트 코스에서 제외</span>
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={(e) => addToCourse(selectedSpot, e)} 
-                          className="btn btn-primary" 
-                          style={{ flex: 1 }}
-                        >
-                          <Plus size={16} />
-                          <span>나만의 1일 데이트 코스에 추가</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </section>
+        {loading ? (
+          <div className="empty-state" style={{ minHeight: '300px' }}>
+            <Heart className="empty-icon animate-pulse-slow" size={48} style={{ color: 'var(--primary)' }} />
+            <h2>가성비 데이트 데이터를 가져오는 중...</h2>
+            <p>서버리스 하이브리드 연동 로딩 중입니다.</p>
           </div>
-        )}
+        ) : (
+          <>
+            {/* VIEW 1: MAP INTERACTIVE DASHBOARD */}
+            {activeTab === 'map' && (
+              <div className="app-workspace animate-fade-in-up">
+                
+                {/* Sidebar - Hidden on mobile if map view is active */}
+                <aside className={`sidebar-panel ${mobileView === 'map' ? 'mobile-hidden' : ''}`}>
+                  
+                  {/* Filter Panel */}
+                  <div className="search-filter-box">
+                    
+                    {/* Search */}
+                    <div className="search-input-wrapper">
+                      <Search className="search-icon" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="맛집, 카페, 장소 검색..." 
+                        className="search-input"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        id="spot-search-field"
+                      />
+                    </div>
 
-        {/* VIEW 2: COURSE PLANNER BOARD */}
-        {activeTab === 'planner' && (
-          <div className="container animate-fade-in-up">
-            <div className="planner-view-container">
-              
-              <div className="board-header">
-                <div className="board-title-group">
-                  <h1 style={{ margin: '0' }} className="gradient-text">나만의 1일 알뜰 데이트 코스</h1>
-                  <p className="board-subtitle">스파이더 맵에서 고른 실속 플레이스들을 조합해 오늘 하루 예산과 일정을 계획해보세요.</p>
-                </div>
-                {courseItems.length > 0 && (
-                  <button onClick={clearCourse} className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                    <Trash2 size={16} style={{ color: 'var(--primary)' }} />
-                    <span>코스 전체 비우기</span>
-                  </button>
-                )}
-              </div>
+                    {/* District Filter Pills */}
+                    <div className="filter-pills">
+                      <button 
+                        onClick={() => setSelectedDistrict('all')} 
+                        className={`filter-pill ${selectedDistrict === 'all' ? 'active' : ''}`}
+                      >
+                        전체 지역
+                      </button>
+                      <button 
+                        onClick={() => setSelectedDistrict('hyehwa')} 
+                        className={`filter-pill ${selectedDistrict === 'hyehwa' ? 'active' : ''}`}
+                      >
+                        혜화/대학로
+                      </button>
+                      <button 
+                        onClick={() => setSelectedDistrict('hongdae')} 
+                        className={`filter-pill ${selectedDistrict === 'hongdae' ? 'active' : ''}`}
+                      >
+                        홍대/신촌
+                      </button>
+                      <button 
+                        onClick={() => setSelectedDistrict('seongsu')} 
+                        className={`filter-pill ${selectedDistrict === 'seongsu' ? 'active' : ''}`}
+                      >
+                        성수/서울숲
+                      </button>
+                      <button 
+                        onClick={() => setSelectedDistrict('gangnam')} 
+                        className={`filter-pill ${selectedDistrict === 'gangnam' ? 'active' : ''}`}
+                      >
+                        강남
+                      </button>
+                      <button 
+                        onClick={() => setSelectedDistrict('yeouido')} 
+                        className={`filter-pill ${selectedDistrict === 'yeouido' ? 'active' : ''}`}
+                      >
+                        여의도/한강
+                      </button>
+                    </div>
 
-              {courseItems.length > 0 ? (
-                <div className="planner-layout">
-                  {/* Timeline list */}
-                  <div className="planner-timeline">
-                    {courseItems.map((spot, idx) => (
-                      <div key={spot.id} className="glass-panel planner-timeline-item">
-                        <div className="planner-timeline-index">{idx + 1}</div>
-                        <div className="planner-timeline-content">
-                          <div className="planner-timeline-details">
-                            <h3 className="planner-item-title">
-                              {spot.name}
-                              <span className="badge badge-secondary" style={{ fontSize: '0.7rem', padding: '1px 8px' }}>
-                                {CATEGORY_EMOJIS[spot.category]} {spot.districtName}
-                              </span>
-                            </h3>
-                            <p className="planner-item-desc">{spot.description}</p>
-                            <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                              <span style={{ fontWeight: '700', color: 'var(--accent)' }}>인당 {spot.costPerPerson.toLocaleString()}원</span>
-                              <span style={{ margin: '0 8px' }}>|</span>
-                              <span>꿀팁: {spot.tip}</span>
-                            </div>
-                          </div>
-                          <div className="planner-timeline-action">
-                            <button 
-                              onClick={(e) => removeFromCourse(spot.id, e)} 
-                              className="btn btn-secondary"
-                              style={{ padding: '8px', borderRadius: 'var(--radius-sm)' }}
-                              title="코스에서 빼기"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
+                    {/* Category Filter Icons */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        onClick={() => setSelectedCategory('all')} 
+                        className={`btn btn-secondary ${selectedCategory === 'all' ? 'active' : ''}`}
+                        style={{ flex: 1, padding: '6px 0', fontSize: '0.8rem', minHeight: '36px', borderColor: selectedCategory === 'all' ? 'var(--primary)' : '' }}
+                      >
+                        전체종류
+                      </button>
+                      {Object.keys(CATEGORY_EMOJIS).map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedCategory(cat)}
+                          className={`btn btn-secondary ${selectedCategory === cat ? 'active' : ''}`}
+                          style={{ flex: 1, padding: '6px 0', fontSize: '0.8rem', minHeight: '36px', borderColor: selectedCategory === cat ? 'var(--primary)' : '' }}
+                        >
+                          {CATEGORY_EMOJIS[cat]} {CATEGORY_NAMES[cat].split(' ')[1]}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Budget Slider */}
+                    <div style={{ textAlign: 'left', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                        <span>1인당 예상 예산 한도</span>
+                        <span className="gradient-text">{budgetLimit.toLocaleString()}원 이하</span>
                       </div>
-                    ))}
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="20000" 
+                        step="1000" 
+                        value={budgetLimit}
+                        onChange={(e) => setBudgetLimit(parseInt(e.target.value, 10))}
+                        style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer', marginTop: '6px' }}
+                        id="budget-range-slider"
+                      />
+                    </div>
+
+                    {/* Fast Report Trigger */}
+                    <button 
+                      onClick={() => setShowReportModal(true)} 
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '8px', fontSize: '0.85rem' }}
+                      id="open-report-modal"
+                    >
+                      <Plus size={16} />
+                      <span>나만의 알뜰 데이트 스팟 제보하기</span>
+                    </button>
                   </div>
 
-                  {/* Summary Dashboard widget */}
-                  <div className="planner-sidebar">
-                    <div className="glass-panel summary-card">
-                      <h2 className="summary-title">
-                        <Award size={22} color="var(--primary)" />
-                        <span>오늘의 데이트 가계부</span>
-                      </h2>
-
-                      <div className="summary-stat-row">
-                        <span className="summary-stat-label">총 방문한 장소</span>
-                        <span className="summary-stat-value">{courseItems.length}곳</span>
+                  {/* Spots List */}
+                  <div className="spot-list">
+                    {filteredSpots.length > 0 ? (
+                      filteredSpots.map(spot => {
+                        const isAdded = courseItems.some(item => item.id === spot.id);
+                        return (
+                          <div 
+                            key={spot.id} 
+                            onClick={() => handleSpotCardClick(spot)}
+                            className={`glass-panel spot-card ${selectedSpot && selectedSpot.id === spot.id ? 'selected' : ''}`}
+                          >
+                            <img src={spot.image} alt={spot.name} className="spot-card-img" />
+                            <div className="spot-card-content">
+                              <div>
+                                <div className="spot-card-header">
+                                  <h3 className="spot-card-title">{spot.name}</h3>
+                                  <span className="badge badge-secondary" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                                    {CATEGORY_EMOJIS[spot.category]} {spot.districtName}
+                                  </span>
+                                </div>
+                                <p className="spot-card-desc">{spot.description}</p>
+                              </div>
+                              
+                              <div className="spot-card-footer">
+                                <span className="spot-price">인당 {spot.costPerPerson.toLocaleString()}원</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    isAdded ? removeFromCourse(spot.id, e) : addToCourse(spot, e);
+                                  }}
+                                  className={`btn ${isAdded ? 'btn-secondary' : 'btn-primary'}`}
+                                  style={{ 
+                                    padding: '4px 10px', 
+                                    borderRadius: 'var(--radius-sm)', 
+                                    fontSize: '0.75rem',
+                                    color: isAdded ? 'var(--text-secondary)' : 'white'
+                                  }}
+                                >
+                                  {isAdded ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                      <Check size={12} /> 추가됨
+                                    </span>
+                                  ) : (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                      <Plus size={12} /> 코스추가
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="empty-state">
+                        <Compass size={40} className="empty-icon animate-pulse-slow" />
+                        <p style={{ fontSize: '0.9rem' }}>해당 조건에 맞는 데이트 장소가 없습니다.<br />예산 한도를 늘리거나 필터를 조절해보세요!</p>
                       </div>
+                    )}
+                  </div>
+                </aside>
 
-                      <div className="summary-stat-row">
-                        <span className="summary-stat-label">커플 총 예상비용 (2인)</span>
-                        <span className="summary-stat-value-accent">{totalCost.toLocaleString()}원</span>
-                      </div>
+                {/* Map - Hidden on mobile if list view is active */}
+                <section className={`map-panel ${mobileView === 'list' ? 'mobile-hidden' : ''}`}>
+                  <div id="map-container" className="map-container-instance"></div>
 
-                      <div className="summary-stat-row">
-                        <span className="summary-stat-label">일반 데이트 대비 아낀 금액</span>
-                        <span className="summary-stat-value-savings">+{totalSavings.toLocaleString()}원</span>
-                      </div>
-
-                      {/* Progress bar representing Savings efficacy */}
-                      <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                          <span>알뜰 지갑 세이브 지수</span>
-                          <span style={{ fontWeight: '700', color: 'var(--accent)' }}>
-                            {Math.min(100, Math.floor((totalSavings / (totalCost + totalSavings || 1)) * 100))}%
+                  {/* Detail Popup Overlay */}
+                  {selectedSpot && (
+                    <div className="glass-panel detail-overlay-panel animate-fade-in-up">
+                      <div className="detail-img-header">
+                        <img src={selectedSpot.image} alt={selectedSpot.name} className="detail-img" />
+                        <div className="detail-img-gradient"></div>
+                        <button 
+                          onClick={() => setSelectedSpot(null)} 
+                          className="detail-close-btn"
+                        >
+                          <X size={18} color="white" />
+                        </button>
+                        <div className="detail-badge-group">
+                          <span className="badge badge-primary">
+                            {CATEGORY_EMOJIS[selectedSpot.category]} {CATEGORY_NAMES[selectedSpot.category]}
+                          </span>
+                          <span className="badge badge-accent">
+                            📍 {selectedSpot.districtName}
                           </span>
                         </div>
-                        <div className="savings-progress-bar">
-                          <div 
-                            className="savings-progress-fill"
-                            style={{ width: `${Math.min(100, Math.floor((totalSavings / (totalCost + totalSavings || 1)) * 100))}%` }}
-                          ></div>
-                        </div>
                       </div>
 
-                      {/* Couple Rating Rank Level Badge */}
-                      <div className="couple-level-card">
-                        <div className="level-icon">{coupleLevel.icon}</div>
-                        <div className="level-info">
-                          <div className="level-title">데이트 기획자 등급</div>
-                          <div className="level-name">{coupleLevel.name}</div>
+                      <div className="detail-body">
+                        <div className="detail-title-section">
+                          <h2 className="detail-title">{selectedSpot.name}</h2>
+                          <span className="badge badge-secondary" style={{ fontSize: '0.85rem' }}>
+                            ⭐ 커플 평점 {selectedSpot.rating}
+                          </span>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="detail-stats">
+                          <div className="detail-stat-item" style={{ flex: 1 }}>
+                            <span className="detail-stat-label">예상 지출 (2인 기준)</span>
+                            <span className="detail-stat-val">{(selectedSpot.costPerPerson * 2).toLocaleString()}원</span>
+                          </div>
+                          <div className="detail-stat-item" style={{ flex: 1 }}>
+                            <span className="detail-stat-label">절약 지수 (일반 대조)</span>
+                            <span className="detail-stat-val detail-stat-val-highlight" style={{ fontSize: '0.85rem' }}>
+                              약 {selectedSpot.savings.toLocaleString()}원 절약!
+                            </span>
+                          </div>
+                          <div className="detail-stat-item" style={{ flex: 0.8 }}>
+                            <span className="detail-stat-label">가성비 평가 점수</span>
+                            <span className="detail-stat-val" style={{ color: 'var(--accent)' }}>
+                              🔥 {selectedSpot.frugalScore}점
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="detail-desc">{selectedSpot.description}</p>
+
+                        {/* Romantic Date Hack */}
+                        <div className="detail-tip-box">
+                          <h4 className="detail-tip-title">
+                            <Sparkles size={14} />
+                            <span>낭만 200% 알뜰 데이트 꿀팁!</span>
+                          </h4>
+                          <p className="detail-tip-content">{selectedSpot.tip}</p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="detail-actions">
+                          {courseItems.some(item => item.id === selectedSpot.id) ? (
+                            <button 
+                              onClick={(e) => removeFromCourse(selectedSpot.id, e)} 
+                              className="btn btn-secondary" 
+                              style={{ flex: 1 }}
+                            >
+                              <Trash2 size={16} />
+                              <span>데이트 코스에서 제외</span>
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={(e) => addToCourse(selectedSpot, e)} 
+                              className="btn btn-primary" 
+                              style={{ flex: 1 }}
+                            >
+                              <Plus size={16} />
+                              <span>나만의 1일 데이트 코스에 추가</span>
+                            </button>
+                          )}
                         </div>
                       </div>
+                    </div>
+                  )}
+                </section>
 
-                      <button 
-                        onClick={() => {
-                          alert(`🎉 코스 저장 완료! \n\n방문지: ${courseItems.map((s, i) => `${i+1}. ${s.name}`).join(', ')} \n총 예상 예산: ${totalCost.toLocaleString()}원 \n일반 데이트 대비 총 ${totalSavings.toLocaleString()}원을 세이브했습니다!`);
-                        }} 
-                        className="btn btn-primary"
-                        style={{ width: '100%', marginTop: '20px' }}
-                      >
-                        <span>데이트 코스 카카오톡/링크 공유하기</span>
+                {/* Floating Mobile Toggle Button */}
+                <button 
+                  className="mobile-toggle-btn btn btn-primary"
+                  onClick={() => setMobileView(mobileView === 'list' ? 'map' : 'list')}
+                  id="mobile-view-toggle"
+                >
+                  {mobileView === 'list' ? <MapIcon size={18} /> : <Search size={18} />}
+                  <span>{mobileView === 'list' ? '지도로 보기' : '장소목록 보기'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* VIEW 2: COURSE PLANNER BOARD */}
+            {activeTab === 'planner' && (
+              <div className="container animate-fade-in-up">
+                <div className="planner-view-container">
+                  
+                  <div className="board-header">
+                    <div className="board-title-group">
+                      <h1 style={{ margin: '0' }} className="gradient-text">나만의 1일 알뜰 데이트 코스</h1>
+                      <p className="board-subtitle">데이트 지도에서 가성비 스팟을 고르고 오늘 하루의 일정과 예상 지출을 점검해 보세요.</p>
+                    </div>
+                    {courseItems.length > 0 && (
+                      <button onClick={clearCourse} className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                        <Trash2 size={16} style={{ color: 'var(--primary)' }} />
+                        <span>코스 전체 비우기</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {courseItems.length > 0 ? (
+                    <div className="planner-layout">
+                      {/* Timeline list */}
+                      <div className="planner-timeline">
+                        {courseItems.map((spot, idx) => (
+                          <div key={spot.id} className="glass-panel planner-timeline-item">
+                            <div className="planner-timeline-index">{idx + 1}</div>
+                            <div className="planner-timeline-content">
+                              <div className="planner-timeline-details">
+                                <h3 className="planner-item-title">
+                                  {spot.name}
+                                  <span className="badge badge-secondary" style={{ fontSize: '0.7rem', padding: '1px 8px' }}>
+                                    {CATEGORY_EMOJIS[spot.category]} {spot.districtName}
+                                  </span>
+                                </h3>
+                                <p className="planner-item-desc">{spot.description}</p>
+                                <div className="planner-item-subinfo">
+                                  <span style={{ fontWeight: '700', color: 'var(--accent)' }}>인당 {spot.costPerPerson.toLocaleString()}원</span>
+                                  <span className="subinfo-divider">|</span>
+                                  <span className="subinfo-tip">꿀팁: {spot.tip}</span>
+                                </div>
+                              </div>
+                              <div className="planner-timeline-action">
+                                <button 
+                                  onClick={(e) => removeFromCourse(spot.id, e)} 
+                                  className="btn btn-secondary"
+                                  style={{ padding: '8px', borderRadius: 'var(--radius-sm)' }}
+                                  title="코스에서 빼기"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Summary Dashboard widget */}
+                      <div className="planner-sidebar">
+                        <div className="glass-panel summary-card">
+                          <h2 className="summary-title">
+                            <Award size={22} color="var(--primary)" />
+                            <span>오늘의 데이트 가계부</span>
+                          </h2>
+
+                          <div className="summary-stat-row">
+                            <span className="summary-stat-label">총 방문 장소</span>
+                            <span className="summary-stat-value">{courseItems.length}곳</span>
+                          </div>
+
+                          <div className="summary-stat-row">
+                            <span className="summary-stat-label">커플 예상 총 지출 (2인)</span>
+                            <span className="summary-stat-value-accent">{totalCost.toLocaleString()}원</span>
+                          </div>
+
+                          <div className="summary-stat-row">
+                            <span className="summary-stat-label">일반 데이트 대비 절감액</span>
+                            <span className="summary-stat-value-savings">+{totalSavings.toLocaleString()}원</span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                              <span>알뜰 지갑 세이브 지수</span>
+                              <span style={{ fontWeight: '700', color: 'var(--accent)' }}>
+                                {Math.min(100, Math.floor((totalSavings / (totalCost + totalSavings || 1)) * 100))}%
+                              </span>
+                            </div>
+                            <div className="savings-progress-bar">
+                              <div 
+                                className="savings-progress-fill"
+                                style={{ width: `${Math.min(100, Math.floor((totalSavings / (totalCost + totalSavings || 1)) * 100))}%` }}
+                              ></div>
+                            </div>
+                          </div>
+
+                          {/* Couple Level badge */}
+                          <div className="couple-level-card">
+                            <div className="level-icon">{coupleLevel.icon}</div>
+                            <div className="level-info">
+                              <div className="level-title">데이트 기획자 등급</div>
+                              <div className="level-name">{coupleLevel.name}</div>
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={() => {
+                              alert(`🎉 코스 저장 완료! \n\n방문지: ${courseItems.map((s, i) => `${i+1}. ${s.name}`).join(', ')} \n총 예상 예산: ${totalCost.toLocaleString()}원 \n일반 데이트 대비 총 ${totalSavings.toLocaleString()}원을 세이브했습니다!`);
+                            }} 
+                            className="btn btn-primary"
+                            style={{ width: '100%', marginTop: '20px' }}
+                          >
+                            <span>데이트 코스 공유하기</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="glass-panel empty-state" style={{ minHeight: '300px' }}>
+                      <Heart size={48} className="empty-icon animate-pulse-slow" style={{ color: 'var(--primary)' }} />
+                      <h2>아직 플래너가 비어 있습니다!</h2>
+                      <p>데이트 지도 탭에서 마음에 드는 가성비 좋은 스팟의 <strong style={{ color: 'var(--primary)' }}>[코스추가]</strong> 버튼을 눌러 나만의 멋진 로맨틱 1일 데이트 플랜을 완성하세요.</p>
+                      <button onClick={() => setActiveTab('map')} className="btn btn-primary">
+                        <span>가성비 데이트 장소 찾으러 가기</span>
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 3: ANONYMOUS FRUGAL TIPS BOARD */}
+            {activeTab === 'board' && (
+              <div className="container animate-fade-in-up">
+                <div className="board-view-container">
+                  
+                  <div className="board-header">
+                    <div className="board-title-group">
+                      <h1 style={{ margin: '0' }} className="gradient-text">데이트 거지방 & 절약 위키</h1>
+                      <p className="board-subtitle">커플들이 직접 밝히는 로맨틱하면서 지갑이 굳는 숨은 꼼수와 생활비 절약 팁 게시판입니다.</p>
+                    </div>
+                    <button 
+                      onClick={() => setShowAddTipModal(true)} 
+                      className="btn btn-primary"
+                      id="open-add-tip-modal"
+                    >
+                      <Plus size={18} />
+                      <span>익명 꿀팁 공유하기</span>
+                    </button>
+                  </div>
+
+                  {/* Tips cards grid */}
+                  <div className="grid-responsive">
+                    {tips.map(tip => {
+                      const hasLiked = likedTips.includes(tip.id);
+                      return (
+                        <div key={tip.id} className="glass-panel tip-card">
+                          <div>
+                            <div className="tip-card-header">
+                              <div className="tip-author-info">
+                                <div className="tip-author-avatar">
+                                  {tip.author.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="tip-author-name">{tip.author}</div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{tip.date}</div>
+                                </div>
+                              </div>
+                              <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>
+                                {CATEGORY_EMOJIS[tip.category] || '💡'} {CATEGORY_NAMES[tip.category] || '꿀팁'}
+                              </span>
+                            </div>
+                            <p className="tip-content">"{tip.content}"</p>
+                          </div>
+
+                          <div className="tip-card-footer">
+                            <span className="tip-savings-badge">
+                              <Coins size={14} />
+                              <span>약 {tip.savings.toLocaleString()}원 절약!</span>
+                            </span>
+                            
+                            <button 
+                              onClick={() => handleLikeTip(tip.id)}
+                              className={`tip-like-btn ${hasLiked ? 'liked' : ''}`}
+                            >
+                              <ThumbsUp size={14} fill={hasLiked ? 'var(--primary)' : 'none'} />
+                              <span>{tip.likes}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 4: ABOUT PAGE */}
+            {activeTab === 'about' && (
+              <div className="container animate-fade-in-up">
+                <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'left' }} className="about-wrapper">
+                  <div className="glass-panel" style={{ padding: '40px' }}>
+                    <h1 className="gradient-text" style={{ fontSize: '2.2rem', marginTop: '0', marginBottom: '20px' }}>
+                      지갑은 가볍게, 사랑은 무겁게!<br />알뜰 데이트맵 프로젝트
+                    </h1>
+                    
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.8', marginBottom: '24px' }}>
+                      본 웹앱은 가성비 좋은 서민용 식당 제보 지도인 <strong>'거지맵(xn--v69ak0xskm.com)'</strong>을 벤치마킹하여 제작된 <strong>연인 전용 알뜰 데이트 플래너</strong>입니다.
+                      물가가 치솟는 고물가 시대에 연인과의 데이트가 매번 10만원 이상의 고비용 부담으로 다가오지 않도록, 검증된 감성적이면서 가성비 훌륭한 장소만을 매칭합니다.
+                    </p>
+
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '12px' }}>💡 핵심 서비스 기능</h3>
+                    <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                      <li><strong>가성비 테마 지도:</strong> 엄선된 서울의 5대 주요 핫플레이스(혜화, 홍대, 성수, 강남, 여의도)의 식당, 카페, 문화 공간, 숲길을 테마별로 확인합니다.</li>
+                      <li><strong>커플 가계부 코스 빌더:</strong> 원하는 스팟을 탭 한 번으로 골라 담아, 1일 풀코스 지출비용 및 일반 데이트 대비 세이브된 누적 절약금을 자동 계산합니다.</li>
+                      <li><strong>리얼 데이트 거지방:</strong> 익명의 커플들이 꽁꽁 감춰둔 무료 전시, 가성비 주말 패스, 할인권 혜택 등 날것 그대로의 알짜 생존형 데이트 꼼수들을 투명하게 나눕니다.</li>
+                      <li><strong>하이브리드 데이터베이스 연동:</strong> 중앙 Supabase DB 환경이 연동되면 글로벌 동기화로 전환되고, 키가 없을 땐 에러 없이 로컬 저장소(`localStorage`)로 자동 대응해 안전하게 구동됩니다.</li>
+                    </ul>
+
+                    {/* Database status widget */}
+                    <div className="glass-panel" style={{ padding: '20px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border)', margin: '20px 0' }}>
+                      <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '1rem', fontWeight: '700' }}>
+                        <Database size={18} color="var(--primary)" />
+                        <span>데이터베이스 연결 현황</span>
+                      </h4>
+                      {isSupabaseConfigured ? (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          🟢 **Supabase 실시간 중앙 서버 DB가 온라인 상태입니다.** 전 세계 모든 유저들이 익명 제보한 스팟과 데이트 꿀팁이 한 곳에 모여 즉시 저장 및 공유됩니다.
+                        </p>
+                      ) : (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          🟡 **안전 로컬 저장 모드로 작동 중입니다.** Vercel 설정 또는 로컬 환경에 Supabase 환경변수(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)를 추가해 주시면 자동으로 중앙 공유형 클라우드 플랫폼으로 즉시 업그레이드됩니다.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="couple-level-card" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--border)' }}>
+                      <div style={{ fontSize: '2rem' }}>💖</div>
+                      <div>
+                        <h4 style={{ fontWeight: '800' }}>"사랑은 지출액에 비례하지 않습니다."</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>진정한 데이트의 가치는 비싼 파스타 식당이나 호텔 라운지가 아닌, 마주 앉아 나누는 진솔한 눈빛과 소소한 발걸음에 있습니다. 알뜰 데이트맵이 두 분의 실속 있고 로맨틱한 동행을 지원합니다!</p>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '32px', textAlign: 'center' }}>
+                      <button onClick={() => setActiveTab('map')} className="btn btn-primary">
+                        <span>지금 바로 데이트 지도 시작하기</span>
                       </button>
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="glass-panel empty-state" style={{ minHeight: '300px' }}>
-                  <Heart size={48} className="empty-icon animate-pulse-slow" style={{ color: 'var(--primary)' }} />
-                  <h2>아직 플래너가 비어 있습니다!</h2>
-                  <p>데이트 지도 탭에서 마음에 드는 가성비 좋은 스팟의 <strong style={{ color: 'var(--primary)' }}>[코스추가]</strong> 버튼을 눌러 나만의 멋진 로맨틱 1일 데이트 플랜을 완성하세요.</p>
-                  <button onClick={() => setActiveTab('map')} className="btn btn-primary">
-                    <span>가성비 데이트 장소 찾으러 가기</span>
-                  </button>
-                </div>
-              )}
-
-            </div>
-          </div>
-        )}
-
-        {/* VIEW 3: ANONYMOUS FRUGAL TIPS COMMUNITY BOARD (거지방) */}
-        {activeTab === 'board' && (
-          <div className="container animate-fade-in-up">
-            <div className="board-view-container">
-              
-              <div className="board-header">
-                <div className="board-title-group">
-                  <h1 style={{ margin: '0' }} className="gradient-text">데이트 거지방 & 절약 위키</h1>
-                  <p className="board-subtitle">지갑은 가볍게, 사랑은 로맨틱하게! 커플들이 직접 나누는 진짜 현실적인 가성비 데이트 꼼수와 꿀팁 게시판입니다.</p>
-                </div>
-                <button 
-                  onClick={() => setShowAddTipModal(true)} 
-                  className="btn btn-primary"
-                  id="open-add-tip-modal"
-                >
-                  <Plus size={18} />
-                  <span>익명 꿀팁 공유하기</span>
-                </button>
               </div>
-
-              {/* Tips cards grid */}
-              <div className="grid-responsive">
-                {tips.map(tip => {
-                  const hasLiked = likedTips.includes(tip.id);
-                  return (
-                    <div key={tip.id} className="glass-panel tip-card">
-                      <div>
-                        <div className="tip-card-header">
-                          <div className="tip-author-info">
-                            <div className="tip-author-avatar">
-                              {tip.author.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="tip-author-name">{tip.author}</div>
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{tip.date}</div>
-                            </div>
-                          </div>
-                          <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>
-                            {CATEGORY_EMOJIS[tip.category] || '💡'} {CATEGORY_NAMES[tip.category] || '꿀팁'}
-                          </span>
-                        </div>
-                        <p className="tip-content">"{tip.content}"</p>
-                      </div>
-
-                      <div className="tip-card-footer">
-                        <span className="tip-savings-badge">
-                          <Coins size={14} />
-                          <span>약 {tip.savings.toLocaleString()}원 절약 추천!</span>
-                        </span>
-                        
-                        <button 
-                          onClick={() => handleLikeTip(tip.id)}
-                          className={`tip-like-btn ${hasLiked ? 'liked' : ''}`}
-                        >
-                          <ThumbsUp size={14} fill={hasLiked ? 'var(--primary)' : 'none'} />
-                          <span>{tip.likes}</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* VIEW 4: ABOUT PAGE */}
-        {activeTab === 'about' && (
-          <div className="container animate-fade-in-up">
-            <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'left' }}>
-              <div className="glass-panel" style={{ padding: '40px' }}>
-                <h1 className="gradient-text" style={{ fontSize: '2.2rem', marginTop: '0', marginBottom: '20px' }}>
-                  지갑은 가볍게, 사랑은 무겁게!<br />알뜰 데이트맵 프로젝트
-                </h1>
-                
-                <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.8', marginBottom: '24px' }}>
-                  본 웹앱은 가성비 좋은 서민용 식당 제보 지도인 <strong>'거지맵(xn--v69ak0xskm.com)'</strong>을 벤치마킹하여 제작된 <strong>연인 전용 알뜰 데이트 플래너</strong>입니다.
-                  물가가 치솟는 고물가 시대에 연인과의 데이트가 매번 10만원 이상의 고비용 부담으로 다가오지 않도록, 검증된 감성적이면서 가성비 훌륭한 장소만을 매칭합니다.
-                </p>
-
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '12px' }}>💡 핵심 서비스 기능</h3>
-                <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                  <li><strong>가성비 테마 지도:</strong> 엄선된 서울의 5대 주요 핫플레이스(혜화, 홍대, 성수, 강남, 여의도)의 식당, 카페, 문화 공간, 숲길을 테마별로 확인합니다.</li>
-                  <li><strong>커플 가계부 코스 빌더:</strong> 원하는 스팟을 탭 한 번으로 골라 담아, 1일 풀코스 지출비용 및 일반 데이트 대비 세이브된 누적 절약금을 자동 계산합니다.</li>
-                  <li><strong>리얼 데이트 거지방:</strong> 익명의 커플들이 꽁꽁 감춰둔 무료 전시, 가성비 주말 패스, 할인권 혜택 등 날것 그대로의 알짜 생존형 데이트 꼼수들을 투명하게 나눕니다.</li>
-                  <li><strong>오픈 피드백 제보 시스템:</strong> 전국의 커플 유저들이 직접 발굴한 로컬 가성비 장소를 익명 제보하여 실시간으로 공동 업데이트 지도를 구축합니다.</li>
-                </ul>
-
-                <div className="couple-level-card" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--border)' }}>
-                  <div style={{ fontSize: '2rem' }}>💖</div>
-                  <div>
-                    <h4 style={{ fontWeight: '800' }}>"사랑은 지출액에 비례하지 않습니다."</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>진정한 데이트의 가치는 비싼 파스타 식당이나 호텔 라운지가 아닌, 마주 앉아 나누는 진솔한 눈빛과 소소한 발걸음에 있습니다. 알뜰 데이트맵이 두 분의 실속 있고 로맨틱한 동행을 지원합니다!</p>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: '32px', textAlign: 'center' }}>
-                  <button onClick={() => setActiveTab('map')} className="btn btn-primary">
-                    <span>지금 바로 데이트 지도 시작하기</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
       </main>
@@ -994,9 +1047,9 @@ function App() {
       <footer className="footer">
         <div className="container footer-content">
           <div>
-            <strong>알뜰 데이트맵</strong> | 커플들을 위한 가성비 명소 위키 © 2026. Inspired by 거지맵.
+            <strong>알뜰 데이트맵</strong> | 가성비 명소 위키 © 2026. Inspired by 거지맵.
           </div>
-          <div style={{ display: 'flex', gap: '16px', fontWeight: '600' }}>
+          <div style={{ display: 'flex', gap: '16px', fontWeight: '600' }} className="footer-links">
             <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('about'); }}>소개</a>
             <span>•</span>
             <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
