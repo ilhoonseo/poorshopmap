@@ -17,7 +17,9 @@ import {
   Check,
   Database,
   Sliders,
-  Smile
+  Smile,
+  Zap,
+  Bookmark
 } from 'lucide-react';
 import { 
   dbGetSpots, 
@@ -52,7 +54,47 @@ const MBTIS = [
   'ISFP', 'ISFJ', 'ISTP', 'ISTJ'
 ];
 
-// MBTI description generators based on personality combinations
+// Pre-recommended Theme Course Presets
+const PRESET_COURSES = [
+  {
+    id: 'course-seoul',
+    title: '서울 혜화 레트로 야경 코스',
+    region: '서울',
+    spotIds: ['seoul-pizza', 'seoul-naksan'],
+    description: '대학생 감성 가득! 9천원짜리 화덕피자와 치즈 떡볶이 세트로 배를 불린 뒤, 밤 조명이 은은히 성벽을 비추는 낙산공원 성곽길을 따라 최고의 도심 야경을 걷는 시그니처 무료 산책 코스.',
+    emoji: '🏰',
+    partnerMbti: 'INFP, INFJ, ISFP 추천'
+  },
+  {
+    id: 'course-busan',
+    title: '부산 로맨틱 오션 & 빈티지 코스',
+    region: '부산',
+    spotIds: ['busan-yeoul', 'busan-milk', 'busan-soobyeon'],
+    description: '바다 절벽 영도 흰여울마을을 산책하고, 1940년대 적산가옥 감성 카페에서 달콤한 수제 우유를 맛본 후, 광안대교 야경 불빛 아래 수변공원 벤치에서 만원대 컵회 피크닉으로 로맨스를 꽃피우는 오션뷰 풀코스.',
+    emoji: '🌊',
+    partnerMbti: 'ENFP, ESFP, ENFJ 추천'
+  },
+  {
+    id: 'course-incheon',
+    title: '인천 이국적 선셋 수상택시 코스',
+    region: '경기/인천',
+    spotIds: ['gyeonggi-hwasung', 'gyeonggi-taxi'],
+    description: '역사적인 성곽길을 탐방하고, 고층 빌딩 숲 사이에 펼쳐진 이국적인 송도 센트럴 호수공원에서 단돈 4,000원에 수상택시를 타고 환상적인 골든아워 석양 조명을 감상하는 고품격 선셋 데이트.',
+    emoji: '⛵',
+    partnerMbti: 'ISTJ, INTJ, ESTJ 추천'
+  },
+  {
+    id: 'course-daejeon',
+    title: '대전 음악분수 & 성심당 맛투어 코스',
+    region: '대전/충청',
+    spotIds: ['daejeon-bread', 'daejeon-fountain'],
+    description: '대한민국 최고 가성비 빵집 성심당에서 맛있는 소보로와 빵들을 저렴하게 골라담아 맛보고, 밤에는 엑스포 과학공원에서 100% 무료로 운영되는 화려한 레이저 춤추는 분수쇼 명당을 점하는 실속 최강 데이트.',
+    emoji: '🍞',
+    partnerMbti: 'ENTP, INTP, ESTP 추천'
+  }
+];
+
+// MBTI description generators
 const getMbtiDescription = (mbti) => {
   if (!mbti || mbti.length !== 4) return '우리 커플의 MBTI 유형을 선택해 맞춤형 데이트 스팟을 알아보세요!';
   
@@ -77,39 +119,35 @@ const getMbtiDescription = (mbti) => {
   return `✨ ${mbti} 커플 특징: ${trait1} 커플! ${trait2}, ${trait3}${trait4} 데이트가 찰떡궁합입니다. 💕`;
 };
 
-// Dynamic MBTI matching score calculator for each spot
+// Dynamic MBTI matching score calculator
 const getMbtiScore = (mbti, spot) => {
   if (!mbti || mbti.length !== 4) return 0;
   
   const [E_I, S_N, T_F, J_P] = mbti.toUpperCase().split('');
   let score = 70; // Base score
 
-  // 1. Walk Spat matching
   if (spot.category === 'walk') {
-    if (E_I === 'I') score += 10; // I loves quiet walk
-    if (S_N === 'N') score += 5;  // N loves thoughtful scenery
-    if (T_F === 'F') score += 10; // F loves romantic scenery
-    if (J_P === 'P') score += 4;  // P loves casual walk
+    if (E_I === 'I') score += 10;
+    if (S_N === 'N') score += 5;
+    if (T_F === 'F') score += 10;
+    if (J_P === 'P') score += 4;
   } 
-  // 2. Cafe Spat matching
   else if (spot.category === 'cafe') {
-    if (E_I === 'I') score += 10; // I loves indoor conversation
-    if (S_N === 'N') score += 8;  // N loves historic/vintage interior
-    if (T_F === 'F') score += 8;  // F loves emotional mood
+    if (E_I === 'I') score += 10;
+    if (S_N === 'N') score += 8;
+    if (T_F === 'F') score += 8;
     if (J_P === 'J') score += 3;
   } 
-  // 3. Activity Spat matching
   else if (spot.category === 'activity') {
-    if (E_I === 'E') score += 12; // E loves interactive action
-    if (S_N === 'S') score += 10; // S loves physical senses
-    if (J_P === 'J' && spot.id.includes('sky')) score += 5; // J loves ticketed spots
+    if (E_I === 'E') score += 12;
+    if (S_N === 'S') score += 10;
+    if (J_P === 'J' && spot.id.includes('sky')) score += 5;
     if (J_P === 'P' && !spot.id.includes('sky')) score += 5;
   } 
-  // 4. Food Spat matching
   else if (spot.category === 'food') {
     if (E_I === 'E') score += 5;
-    if (S_N === 'S') score += 12; // S loves delicious taste
-    if (T_F === 'T') score += 8;  // T loves heavy value-for-money
+    if (S_N === 'S') score += 12;
+    if (T_F === 'T') score += 8;
     if (J_P === 'P' && spot.id.includes('ramen')) score += 4;
   }
 
@@ -233,7 +271,6 @@ function App() {
     const matchesCategory = selectedCategory === 'all' || spot.category === selectedCategory;
     const matchesBudget = spot.costPerPerson <= budgetLimit;
     
-    // MBTI recommendation filtering logic (scores 90% or above are highly compatible picks!)
     const mbtiScore = selectedMbti ? getMbtiScore(selectedMbti, spot) : 0;
     const matchesMbtiOnly = !onlyMbtiRecommended || (selectedMbti && mbtiScore >= 90);
 
@@ -377,6 +414,22 @@ function App() {
   const clearCourse = () => {
     if (window.confirm('계획된 1일 데이트 코스를 초기화하시겠습니까?')) {
       setCourseItems([]);
+    }
+  };
+
+  // Load Preset Course Helper
+  const loadPresetCourse = (spotIds) => {
+    const selectedSpots = [];
+    spotIds.forEach(id => {
+      const match = spots.find(s => s.id === id);
+      if (match) selectedSpots.push(match);
+    });
+
+    if (selectedSpots.length > 0) {
+      setCourseItems(selectedSpots);
+      alert('🎁 전국 베스트 테마 코스가 플래너에 성공적으로 세팅되었습니다! 예산 지표와 데이트 꿀팁을 분석해 보세요.');
+    } else {
+      alert('추천 코스 장소들을 로드할 수 없습니다. 맵 데이터를 재설정해 주세요.');
     }
   };
 
@@ -762,8 +815,6 @@ function App() {
                     {filteredSpots.length > 0 ? (
                       filteredSpots.map(spot => {
                         const isAdded = courseItems.some(item => item.id === spot.id);
-                        
-                        // MBTI Score calculation
                         const mbtiScore = selectedMbti ? getMbtiScore(selectedMbti, spot) : 0;
                         const isMbtiHighlyMatched = mbtiScore >= 90;
 
@@ -951,7 +1002,7 @@ function App() {
                   <div className="board-header">
                     <div className="board-title-group">
                       <h1 style={{ margin: '0' }} className="gradient-text">나만의 1일 알뜰 데이트 코스</h1>
-                      <p className="board-subtitle">데이트 지도에서 가성비 스팟을 고르고 오늘 하루의 일정과 예상 지출을 점검해 보세요.</p>
+                      <p className="board-subtitle">데이트 지도에서 가성비 스팟을 고르거나 아래의 전국 테마 추천 코스를 탭 한 번으로 바로 불러와 가계부를 짜보세요.</p>
                     </div>
                     {courseItems.length > 0 && (
                       <button onClick={clearCourse} className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
@@ -1064,15 +1115,61 @@ function App() {
                       </div>
                     </div>
                   ) : (
-                    <div className="glass-panel empty-state" style={{ minHeight: '300px' }}>
+                    <div className="glass-panel empty-state" style={{ minHeight: '260px', padding: '32px' }}>
                       <Heart size={48} className="empty-icon animate-pulse-slow" style={{ color: 'var(--primary)' }} />
                       <h2>아직 플래너가 비어 있습니다!</h2>
-                      <p>데이트 지도 탭에서 마음에 드는 가성비 좋은 스팟의 <strong style={{ color: 'var(--primary)' }}>[코스추가]</strong> 버튼을 눌러 나만의 멋진 로맨틱 1일 데이트 플랜을 완성하세요.</p>
+                      <p>아래에서 **알뜰 데이트맵 MD가 직접 검증한 전국 가성비 추천 코스**를 로드해보거나, <br />지도로 이동해 마음에 드는 개별 스팟의 <strong style={{ color: 'var(--primary)' }}>[코스추가]</strong> 버튼을 누르세요.</p>
                       <button onClick={() => setActiveTab('map')} className="btn btn-primary">
-                        <span>가성비 데이트 장소 찾으러 가기</span>
+                        <span>장소 고르러 지도로 가기</span>
                       </button>
                     </div>
                   )}
+
+                  {/* PRESET RECOMMENDATIONS GRID SECTION (Tab 2 Bottom) */}
+                  <div style={{ marginTop: '40px', borderTop: '1px solid var(--border)', paddingTop: '32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px', textAlign: 'left' }}>
+                      <Bookmark size={22} color="var(--primary)" />
+                      <h2 style={{ fontSize: '1.25rem', fontWeight: '800', margin: '0' }}>🎁 알뜰 데이트맵 MD 강추! 베스트 테마 코스</h2>
+                    </div>
+
+                    <div className="grid-two-cols">
+                      {PRESET_COURSES.map(course => (
+                        <div 
+                          key={course.id} 
+                          className="glass-panel" 
+                          style={{ padding: '20px', textAlign: 'left', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--border)' }}
+                        >
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                              <h3 style={{ fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '1.3rem' }}>{course.emoji}</span>
+                                <span>{course.title}</span>
+                              </h3>
+                              <span className="badge badge-accent" style={{ fontSize: '0.7rem' }}>
+                                {course.region}
+                              </span>
+                            </div>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '16px' }}>
+                              {course.description}
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '8px' }}>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: '700' }}>
+                              👉 {course.partnerMbti}
+                            </span>
+                            <button
+                              onClick={() => loadPresetCourse(course.spotIds)}
+                              className="btn btn-primary"
+                              style={{ padding: '6px 12px', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)' }}
+                            >
+                              <Zap size={12} /> 코스 불러오기
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
                 </div>
               </div>
@@ -1163,7 +1260,7 @@ function App() {
                     <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
                       <li><strong>전국 가성비 테마 지도:</strong> 엄선된 전국 7대 광역 시도(서울, 경기/인천, 부산, 대구/경북, 대전/충청, 광주/전라, 강원/제주)의 식당, 카페, 체험관, 수변공원을 지도 위에서 바로 탐색합니다.</li>
                       <li><strong>🧬 MBTI 맞춤형 추천 엔진:</strong> 커플의 MBTI 유형을 입력받아 데이트 성향 카드를 분석하고, 마커마다 70%~99% 범위의 개별 성향 호환 지수를 실시간으로 연동 계산합니다.</li>
-                      <li><strong>커플 가계부 코스 빌더:</strong> 원하는 스팟을 탭 한 번으로 골라 담아, 1일 풀코스 지출비용 및 일반 데이트 대비 세이브된 누적 절약금을 자동 계산합니다.</li>
+                      <li><strong>🎁 프리셋 테마 코스 지원:</strong> 서울, 인천, 부산, 대전 등 1일 최고의 호평을 받는 테마 연인 코스를 원클릭으로 플래너에 장착하는 올인원 스케줄링을 지원합니다.</li>
                       <li><strong>리얼 데이트 꿀팁방:</strong> 익명의 커플들이 꽁꽁 감춰둔 무료 전시, 가성비 주말 패스, 할인권 혜택 등 날것 그대로의 알짜 생존형 데이트 꼼수들을 투명하게 나눕니다.</li>
                     </ul>
 
