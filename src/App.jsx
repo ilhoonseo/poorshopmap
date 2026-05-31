@@ -15,7 +15,9 @@ import {
   ThumbsUp, 
   Compass,
   Check,
-  Database
+  Database,
+  Sliders,
+  Smile
 } from 'lucide-react';
 import { 
   dbGetSpots, 
@@ -42,6 +44,78 @@ const CATEGORY_NAMES = {
   walk: '낭만 산책'
 };
 
+// MBTI List
+const MBTIS = [
+  'ENFP', 'ENFJ', 'ENTP', 'ENTJ',
+  'ESFP', 'ESFJ', 'ESTP', 'ESTJ',
+  'INFP', 'INFJ', 'INTP', 'INTJ',
+  'ISFP', 'ISFJ', 'ISTP', 'ISTJ'
+];
+
+// MBTI description generators based on personality combinations
+const getMbtiDescription = (mbti) => {
+  if (!mbti || mbti.length !== 4) return '우리 커플의 MBTI 유형을 선택해 맞춤형 데이트 스팟을 알아보세요!';
+  
+  const [E_I, S_N, T_F, J_P] = mbti.toUpperCase().split('');
+  
+  const trait1 = E_I === 'E' 
+    ? '활동적이고 생동감 넘치는 야외 코스를 즐기는 에너지 충만형'
+    : '차분하고 아늑한 조용한 둘만의 실내 공간을 좋아하는 힐링 감성형';
+    
+  const trait2 = S_N === 'S'
+    ? '오감을 직접 자극하는 확실한 가성비 맛집과 직관적인 액티비티를 선호하고'
+    : '아날로그 정취와 역사, 독창적인 예술품들이 깃든 문화 공간과 골목길에 매료되며';
+    
+  const trait3 = T_F === 'T'
+    ? '지갑 사정에 최적화된 높은 가치와 실속 있는 동선 설계를 중시하는 스마트 러버'
+    : '아름다운 도심 노을과 호숫가 야경, 감미로운 멜로디에 눈물짓는 로맨틱 감성가';
+    
+  const trait4 = J_P === 'J'
+    ? '이며, 동선과 타임테이블이 확실하고 깔끔하게 정돈된 클래식 코스'
+    : '이며, 즉흥적이고 편안하게 발길 닿는 대로 유유자적 떠나는 피크닉';
+
+  return `✨ ${mbti} 커플 특징: ${trait1} 커플! ${trait2}, ${trait3}${trait4} 데이트가 찰떡궁합입니다. 💕`;
+};
+
+// Dynamic MBTI matching score calculator for each spot
+const getMbtiScore = (mbti, spot) => {
+  if (!mbti || mbti.length !== 4) return 0;
+  
+  const [E_I, S_N, T_F, J_P] = mbti.toUpperCase().split('');
+  let score = 70; // Base score
+
+  // 1. Walk Spat matching
+  if (spot.category === 'walk') {
+    if (E_I === 'I') score += 10; // I loves quiet walk
+    if (S_N === 'N') score += 5;  // N loves thoughtful scenery
+    if (T_F === 'F') score += 10; // F loves romantic scenery
+    if (J_P === 'P') score += 4;  // P loves casual walk
+  } 
+  // 2. Cafe Spat matching
+  else if (spot.category === 'cafe') {
+    if (E_I === 'I') score += 10; // I loves indoor conversation
+    if (S_N === 'N') score += 8;  // N loves historic/vintage interior
+    if (T_F === 'F') score += 8;  // F loves emotional mood
+    if (J_P === 'J') score += 3;
+  } 
+  // 3. Activity Spat matching
+  else if (spot.category === 'activity') {
+    if (E_I === 'E') score += 12; // E loves interactive action
+    if (S_N === 'S') score += 10; // S loves physical senses
+    if (J_P === 'J' && spot.id.includes('sky')) score += 5; // J loves ticketed spots
+    if (J_P === 'P' && !spot.id.includes('sky')) score += 5;
+  } 
+  // 4. Food Spat matching
+  else if (spot.category === 'food') {
+    if (E_I === 'E') score += 5;
+    if (S_N === 'S') score += 12; // S loves delicious taste
+    if (T_F === 'T') score += 8;  // T loves heavy value-for-money
+    if (J_P === 'P' && spot.id.includes('ramen')) score += 4;
+  }
+
+  return Math.min(99, score);
+};
+
 function App() {
   // Views navigation state: 'map' | 'planner' | 'board' | 'about'
   const [activeTab, setActiveTab] = useState('map');
@@ -59,6 +133,12 @@ function App() {
   const [selectedDistrict, setSelectedDistrict] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [budgetLimit, setBudgetLimit] = useState(15000); // per person
+  
+  // MBTI Recommendation States
+  const [selectedMbti, setSelectedMbti] = useState(() => {
+    return localStorage.getItem('poor_date_mbti') || '';
+  });
+  const [onlyMbtiRecommended, setOnlyMbtiRecommended] = useState(false);
   
   // Selected spot details state
   const [selectedSpot, setSelectedSpot] = useState(null);
@@ -118,7 +198,7 @@ function App() {
     loadInitialData();
   }, []);
 
-  // Save Local Course Items to LocalStorage
+  // Save Local Course Items and MBTI selection
   useEffect(() => {
     localStorage.setItem('poor_date_course', JSON.stringify(courseItems));
   }, [courseItems]);
@@ -126,6 +206,14 @@ function App() {
   useEffect(() => {
     localStorage.setItem('poor_date_liked_tips', JSON.stringify(likedTips));
   }, [likedTips]);
+
+  useEffect(() => {
+    if (selectedMbti) {
+      localStorage.setItem('poor_date_mbti', selectedMbti);
+    } else {
+      localStorage.removeItem('poor_date_mbti');
+    }
+  }, [selectedMbti]);
 
   // Leaflet map tile rendering error solver inside display:none toggle
   useEffect(() => {
@@ -137,14 +225,19 @@ function App() {
     }
   }, [mobileView, activeTab]);
 
-  // Filtering Spots logic
+  // Filtering Spots logic + MBTI Match filter
   const filteredSpots = spots.filter(spot => {
     const matchesSearch = spot.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           spot.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDistrict = selectedDistrict === 'all' || spot.district === selectedDistrict;
     const matchesCategory = selectedCategory === 'all' || spot.category === selectedCategory;
     const matchesBudget = spot.costPerPerson <= budgetLimit;
-    return matchesSearch && matchesDistrict && matchesCategory && matchesBudget;
+    
+    // MBTI recommendation filtering logic (scores 90% or above are highly compatible picks!)
+    const mbtiScore = selectedMbti ? getMbtiScore(selectedMbti, spot) : 0;
+    const matchesMbtiOnly = !onlyMbtiRecommended || (selectedMbti && mbtiScore >= 90);
+
+    return matchesSearch && matchesDistrict && matchesCategory && matchesBudget && matchesMbtiOnly;
   });
 
   // Map Initialization Effect
@@ -320,7 +413,6 @@ function App() {
       return;
     }
 
-    // Coordinates placed randomly in central Seoul
     const seoulCenter = { lat: 37.556, lng: 126.978 };
     const randomOffset = () => (Math.random() - 0.5) * 0.08;
 
@@ -349,7 +441,6 @@ function App() {
       image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=600&auto=format&fit=crop'
     };
 
-    // Save to hybrid DB
     const savedSpot = await dbSaveSpot(newSpot);
     setSpots([savedSpot, ...spots]);
     
@@ -384,7 +475,6 @@ function App() {
       date: new Date().toISOString().split('T')[0]
     };
 
-    // Save to hybrid DB
     const savedTip = await dbSaveTip(newTip);
     setTips([savedTip, ...tips]);
     
@@ -508,8 +598,48 @@ function App() {
                 {/* Sidebar - Hidden on mobile if map view is active */}
                 <aside className={`sidebar-panel ${mobileView === 'map' ? 'mobile-hidden' : ''}`}>
                   
+                  {/* MBTI Compatibility Widget Section */}
+                  <div className="glass-panel" style={{ margin: '16px', padding: '16px', background: 'rgba(255, 74, 122, 0.04)', border: '1px solid rgba(255, 74, 122, 0.15)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                      <Smile size={18} color="var(--primary)" />
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: '800' }}>🧬 우리 커플 MBTI 케미 스팟</h4>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <select 
+                        className="form-control" 
+                        style={{ padding: '6px 12px', fontSize: '0.8rem', height: '34px', background: 'rgba(9,9,11,0.6)' }}
+                        value={selectedMbti}
+                        onChange={(e) => {
+                          setSelectedMbti(e.target.value);
+                          if (!e.target.value) setOnlyMbtiRecommended(false);
+                        }}
+                        id="mbti-selector"
+                      >
+                        <option value="">우리의 MBTI 선택...</option>
+                        {MBTIS.map(mbti => (
+                          <option key={mbti} value={mbti}>{mbti}</option>
+                        ))}
+                      </select>
+
+                      {selectedMbti && (
+                        <button
+                          onClick={() => setOnlyMbtiRecommended(!onlyMbtiRecommended)}
+                          className={`btn ${onlyMbtiRecommended ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ padding: '6px 12px', fontSize: '0.75rem', height: '34px', borderRadius: 'var(--radius-md)', whiteSpace: 'nowrap' }}
+                        >
+                          {onlyMbtiRecommended ? '전체 장소' : '매칭 스팟만'}
+                        </button>
+                      )}
+                    </div>
+
+                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: '1.4', margin: '0', textAlign: 'left' }}>
+                      {getMbtiDescription(selectedMbti)}
+                    </p>
+                  </div>
+
                   {/* Filter Panel */}
-                  <div className="search-filter-box">
+                  <div className="search-filter-box" style={{ borderTop: '1px solid var(--border)' }}>
                     
                     {/* Search */}
                     <div className="search-input-wrapper">
@@ -530,7 +660,7 @@ function App() {
                         onClick={() => setSelectedDistrict('all')} 
                         className={`filter-pill ${selectedDistrict === 'all' ? 'active' : ''}`}
                       >
-                        전국 전체
+                        전체 지역
                       </button>
                       <button 
                         onClick={() => setSelectedDistrict('seoul')} 
@@ -632,6 +762,11 @@ function App() {
                     {filteredSpots.length > 0 ? (
                       filteredSpots.map(spot => {
                         const isAdded = courseItems.some(item => item.id === spot.id);
+                        
+                        // MBTI Score calculation
+                        const mbtiScore = selectedMbti ? getMbtiScore(selectedMbti, spot) : 0;
+                        const isMbtiHighlyMatched = mbtiScore >= 90;
+
                         return (
                           <div 
                             key={spot.id} 
@@ -643,9 +778,19 @@ function App() {
                               <div>
                                 <div className="spot-card-header">
                                   <h3 className="spot-card-title">{spot.name}</h3>
-                                  <span className="badge badge-secondary" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                                    {CATEGORY_EMOJIS[spot.category]} {spot.districtName}
-                                  </span>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                    <span className="badge badge-secondary" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                                      {CATEGORY_EMOJIS[spot.category]} {spot.districtName}
+                                    </span>
+                                    {selectedMbti && (
+                                      <span 
+                                        className={`badge ${isMbtiHighlyMatched ? 'badge-primary' : 'badge-accent'}`} 
+                                        style={{ fontSize: '0.65rem', padding: '1px 6px', fontWeight: '800', animation: isMbtiHighlyMatched ? 'pulse-slow 2s infinite' : 'none' }}
+                                      >
+                                        💝 {selectedMbti} {mbtiScore}%
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <p className="spot-card-desc">{spot.description}</p>
                               </div>
@@ -712,6 +857,11 @@ function App() {
                           <span className="badge badge-accent">
                             📍 {selectedSpot.districtName}
                           </span>
+                          {selectedMbti && (
+                            <span className="badge badge-primary" style={{ background: 'linear-gradient(135deg, var(--primary), var(--secondary))', border: 'none' }}>
+                              💝 {selectedMbti} 매치 {getMbtiScore(selectedMbti, selectedSpot)}%
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -825,6 +975,11 @@ function App() {
                                   <span className="badge badge-secondary" style={{ fontSize: '0.7rem', padding: '1px 8px' }}>
                                     {CATEGORY_EMOJIS[spot.category]} {spot.districtName}
                                   </span>
+                                  {selectedMbti && (
+                                    <span className="badge badge-primary" style={{ fontSize: '0.65rem', padding: '1px 6px', fontWeight: '800' }}>
+                                      💝 {selectedMbti} {getMbtiScore(selectedMbti, spot)}%
+                                    </span>
+                                  )}
                                 </h3>
                                 <p className="planner-item-desc">{spot.description}</p>
                                 <div className="planner-item-subinfo">
@@ -976,78 +1131,79 @@ function App() {
                             <button 
                               onClick={() => handleLikeTip(tip.id)}
                               className={`tip-like-btn ${hasLiked ? 'liked' : ''}`}
-                        >
-                          <ThumbsUp size={14} fill={hasLiked ? 'var(--primary)' : 'none'} />
-                          <span>{tip.likes}</span>
-                        </button>
+                            >
+                              <ThumbsUp size={14} fill={hasLiked ? 'var(--primary)' : 'none'} />
+                              <span>{tip.likes}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 4: ABOUT PAGE */}
+            {activeTab === 'about' && (
+              <div className="container animate-fade-in-up">
+                <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'left' }} className="about-wrapper">
+                  <div className="glass-panel" style={{ padding: '40px' }}>
+                    <h1 className="gradient-text" style={{ fontSize: '2.2rem', marginTop: '0', marginBottom: '20px' }}>
+                      지갑은 가볍게, 사랑은 무겁게!<br />알뜰 데이트맵 프로젝트
+                    </h1>
+                    
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.8', marginBottom: '24px' }}>
+                      본 웹앱은 연인들을 위한 <strong>전국 단위 가성비 데이트 플래너 & 지도 플랫폼</strong>입니다.
+                      물가가 치솟는 고물가 시대에 연인과의 데이트가 매번 10만원 이상의 고비용 부담으로 다가오지 않도록, 검증된 감성적이면서 가성비 훌륭한 전국의 실속 명소들을 매칭합니다.
+                    </p>
+
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '12px' }}>💡 핵심 서비스 기능</h3>
+                    <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                      <li><strong>전국 가성비 테마 지도:</strong> 엄선된 전국 7대 광역 시도(서울, 경기/인천, 부산, 대구/경북, 대전/충청, 광주/전라, 강원/제주)의 식당, 카페, 체험관, 수변공원을 지도 위에서 바로 탐색합니다.</li>
+                      <li><strong>🧬 MBTI 맞춤형 추천 엔진:</strong> 커플의 MBTI 유형을 입력받아 데이트 성향 카드를 분석하고, 마커마다 70%~99% 범위의 개별 성향 호환 지수를 실시간으로 연동 계산합니다.</li>
+                      <li><strong>커플 가계부 코스 빌더:</strong> 원하는 스팟을 탭 한 번으로 골라 담아, 1일 풀코스 지출비용 및 일반 데이트 대비 세이브된 누적 절약금을 자동 계산합니다.</li>
+                      <li><strong>리얼 데이트 꿀팁방:</strong> 익명의 커플들이 꽁꽁 감춰둔 무료 전시, 가성비 주말 패스, 할인권 혜택 등 날것 그대로의 알짜 생존형 데이트 꼼수들을 투명하게 나눕니다.</li>
+                    </ul>
+
+                    {/* Database status widget */}
+                    <div className="glass-panel" style={{ padding: '20px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border)', margin: '20px 0' }}>
+                      <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '1rem', fontWeight: '700' }}>
+                        <Database size={18} color="var(--primary)" />
+                        <span>데이터베이스 연결 현황</span>
+                      </h4>
+                      {isSupabaseConfigured ? (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          🟢 **Supabase 실시간 중앙 서버 DB가 온라인 상태입니다.** 전 세계 모든 유저들이 익명 제보한 스팟과 데이트 꿀팁이 한 곳에 모여 즉시 저장 및 공유됩니다.
+                        </p>
+                      ) : (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          🟡 **안전 로컬 저장 모드로 작동 중입니다.** Vercel 설정 또는 로컬 환경에 Supabase 환경변수(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)를 추가해 주시면 자동으로 중앙 공유형 클라우드 플랫폼으로 즉시 업그레이드됩니다.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="couple-level-card" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--border)' }}>
+                      <div style={{ fontSize: '2rem' }}>💖</div>
+                      <div>
+                        <h4 style={{ fontWeight: '800' }}>"사랑은 지출액에 비례하지 않습니다."</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>진정한 데이트의 가치는 비싼 파스타 식당이나 호텔 라운지가 아닌, 마주 앉아 나누는 진솔한 눈빛과 소소한 발걸음에 있습니다. 알뜰 데이트맵이 두 분의 실속 있고 로맨틱한 동행을 지원합니다!</p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
 
-            </div>
-          </div>
-        )}
-
-        {/* VIEW 4: ABOUT PAGE */}
-        {activeTab === 'about' && (
-          <div className="container animate-fade-in-up">
-            <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'left' }} className="about-wrapper">
-              <div className="glass-panel" style={{ padding: '40px' }}>
-                <h1 className="gradient-text" style={{ fontSize: '2.2rem', marginTop: '0', marginBottom: '20px' }}>
-                  지갑은 가볍게, 사랑은 무겁게!<br />알뜰 데이트맵 프로젝트
-                </h1>
-                
-                <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.8', marginBottom: '24px' }}>
-                  본 웹앱은 연인들을 위한 <strong>전국 단위 가성비 데이트 플래너 & 지도 플랫폼</strong>입니다.
-                  물가가 치솟는 고물가 시대에 연인과의 데이트가 매번 10만원 이상의 고비용 부담으로 다가오지 않도록, 검증된 감성적이면서 가성비 훌륭한 전국의 실속 명소들을 매칭합니다.
-                </p>
-
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '12px' }}>💡 핵심 서비스 기능</h3>
-                <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                  <li><strong>전국 가성비 테마 지도:</strong> 엄선된 전국 7대 광역 시도(서울, 경기/인천, 부산, 대구/경북, 대전/충청, 광주/전라, 강원/제주)의 식당, 카페, 체험관, 수변공원을 지도 위에서 바로 탐색합니다.</li>
-                  <li><strong>커플 가계부 코스 빌더:</strong> 원하는 스팟을 탭 한 번으로 골라 담아, 1일 풀코스 지출비용 및 일반 데이트 대비 세이브된 누적 절약금을 자동 계산합니다.</li>
-                  <li><strong>리얼 데이트 꿀팁방:</strong> 익명의 커플들이 꽁꽁 감춰둔 무료 전시, 가성비 주말 패스, 할인권 혜택 등 날것 그대로의 알짜 생존형 데이트 꼼수들을 투명하게 나눕니다.</li>
-                  <li><strong>하이브리드 데이터베이스 연동:</strong> 중앙 Supabase DB 환경이 연동되면 글로벌 동기화로 전환되고, 키가 없을 땐 에러 없이 로컬 저장소(`localStorage`)로 자동 대응해 안전하게 구동됩니다.</li>
-                </ul>
-
-                {/* Database status widget */}
-                <div className="glass-panel" style={{ padding: '20px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border)', margin: '20px 0' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '1rem', fontWeight: '700' }}>
-                    <Database size={18} color="var(--primary)" />
-                    <span>데이터베이스 연결 현황</span>
-                  </h4>
-                  {isSupabaseConfigured ? (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      🟢 **Supabase 실시간 중앙 서버 DB가 온라인 상태입니다.** 전 세계 모든 유저들이 익명 제보한 스팟과 데이트 꿀팁이 한 곳에 모여 즉시 저장 및 공유됩니다.
-                    </p>
-                  ) : (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      🟡 **안전 로컬 저장 모드로 작동 중입니다.** Vercel 설정 또는 로컬 환경에 Supabase 환경변수(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)를 추가해 주시면 자동으로 중앙 공유형 클라우드 플랫폼으로 즉시 업그레이드됩니다.
-                    </p>
-                  )}
-                </div>
-
-                <div className="couple-level-card" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--border)' }}>
-                  <div style={{ fontSize: '2rem' }}>💖</div>
-                  <div>
-                    <h4 style={{ fontWeight: '800' }}>"사랑은 지출액에 비례하지 않습니다."</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>진정한 데이트의 가치는 비싼 파스타 식당이나 호텔 라운지가 아닌, 마주 앉아 나누는 진솔한 눈빛과 소소한 발걸음에 있습니다. 알뜰 데이트맵이 두 분의 실속 있고 로맨틱한 동행을 지원합니다!</p>
+                    <div style={{ marginTop: '32px', textAlign: 'center' }}>
+                      <button onClick={() => setActiveTab('map')} className="btn btn-primary">
+                        <span>지금 바로 데이트 지도 시작하기</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div style={{ marginTop: '32px', textAlign: 'center' }}>
-                  <button onClick={() => setActiveTab('map')} className="btn btn-primary">
-                    <span>지금 바로 데이트 지도 시작하기</span>
-                  </button>
-                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
           </>
         )}
+
       </main>
 
       {/* Footer Section */}
