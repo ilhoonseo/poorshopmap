@@ -1,16 +1,91 @@
-# React + Vite
+# 💖 알뜰 데이트맵 (Budget Date Map) 
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **"지갑은 가볍게, 사랑은 무겁게!"**  
+> 고물가 시대, 연인들이 가성비 좋고 센스 넘치는 데이트 코스를 계획하고 공유할 수 있도록 지원하는 커플 맞춤형 지도 기반 웹 서비스입니다.  
+> *본 프로젝트는 서민형 가성비 맛집 정보망 **[거지맵](https://xn--v69ak0xskm.com/)**에서 영감을 받아 제작된 커플 에디션입니다.*
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 서비스 주요 링크
+- **라이브 서비스 (Vercel):** [https://poorshopmap.vercel.app](https://poorshopmap.vercel.app)
+- **깃허브 저장소 (GitHub):** [https://github.com/ilhoonseo/poorshopmap](https://github.com/ilhoonseo/poorshopmap)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## ✨ 핵심 기능 (Features)
 
-## Expanding the ESLint configuration
+### 1. 📍 인터랙티브 가성비 데이트 지도 (Romantic Budget Map)
+- **검색 & 다중 필터링:** 서울 5대 주요 데이트 명소(혜화/대학로, 홍대/신촌, 성수/서울숲, 강남, 여의도/한강) 및 카테고리(식당, 카페, 놀거리, 산책)별로 빠르게 장소를 찾을 수 있습니다.
+- **예산 한도 슬라이더:** 1인당 데이트 예산 상한선을 실시간으로 적용해 맞춤형 가성비 장소들만 노출합니다.
+- **맞춤형 지도 렌더링:** `OpenStreetMap` 및 `CartoDB Dark Matter` 오픈소스 타일맵을 결합해 세련되고 다크한 밤거리 무드를 선사하며, 카테고리별로 아기자기하게 반짝이는 **글로잉 이모지 마커(🍝, ☕, 🎡, 🌳)**를 지원합니다.
+- **장소 디테일 정보:** 커플 평점, 일반 데이트 대비 절약 환산 금액, 가성비 지수, 그리고 가성비 데이트를 200% 즐길 수 있는 **"낭만 꿀팁"**을 상세 팝업 패널로 제공합니다.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 2. ⚡ 1일 데이트 코스 빌더 (Reactive Course Planner)
+- **간편 추가/삭제:** 데이트 장소 목록에서 마음에 드는 곳을 원클릭으로 골라 담아 '오늘 하루 코스'를 완성합니다.
+- **실시간 예산 및 절약 통계:** 코스를 설계하는 즉시 커플의 2인 총합 지출액과 세이브된 누적 절약 액수를 자동으로 계산하여 막대 프로그래머 그래프로 직관적으로 보여줍니다.
+- **데이트 등급 수여:** 총 지출 한도에 따라 **[가성비 신의 경지 👑]**, **[로맨틱 낭만 실속파 💖]** 등 유쾌한 레벨 칭호를 부여받고 결과 리포트를 공유할 수 있습니다.
+
+### 3. 💬 데이트 거지방 & 실속 위키 (Anonymous Tips Forum)
+- **익명 꿀팁 게시판:** 가입 절차 없이 닉네임만으로 전국 커플 유저들이 직접 겪은 날것 그대로의 실속 절약형 데이트 꿀팁(예: 무료 한강 야경 즐기기, 할인 연극 패스 등)을 자유롭게 투명하게 나눕니다.
+- **반응형 추천 시스템:** 도움되는 꿀팁에 실시간 '좋아요' 투표를 남겨 인기글을 지지할 수 있으며, 이 모든 상태는 브라우저 `localStorage`를 통해 안전하게 유지됩니다.
+
+### 4. 📢 오픈 제보 시스템 (Interactive Crowdsourcing)
+- **다이렉트 제보 기능:** 커플 유저들이 자신만 아는 훌륭한 로컬 실속 맛집이나 이색 명소를 익명 제보하여 지도 데이터베이스에 실시간으로 반영합니다.
+
+---
+
+## 🛠 기술 스택 (Tech Stack)
+
+### **Core & Build**
+- **React 19:** 컴포넌트 단위의 빠른 상태 갱신 및 우수한 UX 구현
+- **Vite 8:** 초고속 로컬 빌드 및 모듈 핫 리로딩(HMR) 지원
+- **Vercel Deploy:** 깃허브 커밋 푸시 시 자동 빌드 & 무중단 CD(지속적 배포) 실현
+
+### **Library & Resource**
+- **Leaflet.js:** 외부 API 키(카카오/구글 맵) 없이 완벽히 동작하는 경량 지도 엔진 
+- **Lucide React:** 깔끔하고 세련된 벡터 UI 아이콘 라이브러리
+- **Google Fonts (Outfit & Noto Sans KR):** 영문 디자인 폰트와 한글 폰트를 매칭한 최상의 타이포그래피 디자인
+
+### **Styling**
+- **Vanilla CSS3:** HSL 색상 모델 설계, 프리미엄 글라스모피즘(Backdrop blur), 그라디언트 테두리, 부드러운 호버 트랜지션 및 키프레임 미세 애니메이션을 ad-hoc 없이 완벽히 내재화
+
+---
+
+## 🏃‍♂️ 로컬 개발 실행 방법 (Local Development)
+
+프로젝트를 내 컴퓨터에서 실행하려면 아래 명령어를 사용하세요.
+
+1. **저장소 클론:**
+   ```bash
+   git clone https://github.com/ilhoonseo/poorshopmap.git
+   cd poorshopmap
+   ```
+
+2. **패키지 설치:**
+   ```bash
+   npm install
+   ```
+
+3. **로컬 개발 서버 실행:**
+   ```bash
+   npm run dev
+   ```
+   *브라우저에서 `http://localhost:5173` 으로 접속합니다.*
+
+4. **프로덕션 빌드 컴파일:**
+   ```bash
+   npm run build
+   ```
+   *최적화 및 번들링된 코드가 `dist` 폴더에 생성됩니다.*
+
+---
+
+## 📦 배포 (Deployment)
+
+본 프로젝트는 Vercel과 GitHub이 유기적으로 연동되어 있습니다.  
+`main` 브랜치에 변경 사항이 커밋 및 푸시될 때마다 Vercel 배포 파이프라인이 자동으로 활성화되어 빌드 작업을 수행합니다.
+
+- **로컬에서 Vercel 수동 배포 및 반영:**
+  ```bash
+  npx vercel --yes --prod
+  ```
