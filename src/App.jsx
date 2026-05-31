@@ -15,8 +15,6 @@ import {
   ThumbsUp, 
   Compass,
   Check,
-  Smartphone,
-  Globe,
   Database
 } from 'lucide-react';
 import { 
@@ -48,7 +46,7 @@ function App() {
   // Views navigation state: 'map' | 'planner' | 'board' | 'about'
   const [activeTab, setActiveTab] = useState('map');
   
-  // Mobile responsive views toggle for Map screen: 'list' ( 장소 목록) | 'map' (풀 스크린 지도)
+  // Mobile responsive views toggle for Map screen: 'list' (장소 목록) | 'map' (풀 스크린 지도)
   const [mobileView, setMobileView] = useState('list');
 
   // Spots & Tips state loaded from hybrid DB
@@ -85,7 +83,7 @@ function App() {
   const [reportForm, setReportForm] = useState({
     name: '',
     category: 'food',
-    district: 'hongdae',
+    district: 'seoul',
     costPerPerson: '',
     description: '',
     tip: ''
@@ -132,7 +130,6 @@ function App() {
   // Leaflet map tile rendering error solver inside display:none toggle
   useEffect(() => {
     if (activeTab === 'map' && mobileView === 'map' && mapRef.current) {
-      // 150ms delay ensures browser finishes layout repaint, resolving gray tile leaflet bug
       const timer = setTimeout(() => {
         mapRef.current.invalidateSize({ animate: true });
       }, 150);
@@ -255,10 +252,8 @@ function App() {
   // Center map on spot when clicked in list
   const handleSpotCardClick = (spot) => {
     setSelectedSpot(spot);
-    // On mobile, automatically toggle to the map when card is clicked, ensuring rich user flow
     setMobileView('map');
     if (mapRef.current) {
-      // Small timeout ensures leaflet container display: block is processed first
       setTimeout(() => {
         mapRef.current.invalidateSize();
         mapRef.current.flyTo([spot.lat, spot.lng], 15, {
@@ -313,7 +308,6 @@ function App() {
       setLikedTips([...likedTips, tipId]);
     }
     
-    // Sync update to Supabase centrally (if configured)
     await dbLikeTip(tipId, updatedLikes);
   };
 
@@ -336,11 +330,13 @@ function App() {
       category: reportForm.category,
       district: reportForm.district,
       districtName: {
-        hongdae: '홍대/신촌',
-        seongsu: '성수/서울숲',
-        hyehwa: '혜화/대학로',
-        gangnam: '강남',
-        yeouido: '여의도/한강'
+        seoul: '서울',
+        gyeonggi: '경기/인천',
+        busan: '부산',
+        daegu: '대구/경북',
+        daejeon: '대전/충청',
+        gwangju: '광주/전라',
+        gangwon: '강원/제주'
       }[reportForm.district],
       lat: seoulCenter.lat + randomOffset(),
       lng: seoulCenter.lng + randomOffset(),
@@ -361,7 +357,7 @@ function App() {
     setReportForm({
       name: '',
       category: 'food',
-      district: 'hongdae',
+      district: 'seoul',
       costPerPerson: '',
       description: '',
       tip: ''
@@ -430,7 +426,7 @@ function App() {
           <span className="logo-title">
             <span className="gradient-text">알뜰 데이트맵</span>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '6px', fontWeight: '500' }} className="version-label">
-              커플에디션
+              전국 에디션
             </span>
           </span>
         </div>
@@ -477,7 +473,7 @@ function App() {
                 id="nav-board-tab"
               >
                 <MessageSquare size={18} />
-                <span>데이트 거지방</span>
+                <span>데이트 꿀팁방</span>
               </button>
             </li>
             <li>
@@ -501,7 +497,7 @@ function App() {
           <div className="empty-state" style={{ minHeight: '300px' }}>
             <Heart className="empty-icon animate-pulse-slow" size={48} style={{ color: 'var(--primary)' }} />
             <h2>가성비 데이트 데이터를 가져오는 중...</h2>
-            <p>서버리스 하이브리드 연동 로딩 중입니다.</p>
+            <p>전국 하이브리드 연동 로딩 중입니다.</p>
           </div>
         ) : (
           <>
@@ -528,43 +524,55 @@ function App() {
                       />
                     </div>
 
-                    {/* District Filter Pills */}
+                    {/* Nationwide District Filter Pills */}
                     <div className="filter-pills">
                       <button 
                         onClick={() => setSelectedDistrict('all')} 
                         className={`filter-pill ${selectedDistrict === 'all' ? 'active' : ''}`}
                       >
-                        전체 지역
+                        전국 전체
                       </button>
                       <button 
-                        onClick={() => setSelectedDistrict('hyehwa')} 
-                        className={`filter-pill ${selectedDistrict === 'hyehwa' ? 'active' : ''}`}
+                        onClick={() => setSelectedDistrict('seoul')} 
+                        className={`filter-pill ${selectedDistrict === 'seoul' ? 'active' : ''}`}
                       >
-                        혜화/대학로
+                        서울
                       </button>
                       <button 
-                        onClick={() => setSelectedDistrict('hongdae')} 
-                        className={`filter-pill ${selectedDistrict === 'hongdae' ? 'active' : ''}`}
+                        onClick={() => setSelectedDistrict('gyeonggi')} 
+                        className={`filter-pill ${selectedDistrict === 'gyeonggi' ? 'active' : ''}`}
                       >
-                        홍대/신촌
+                        경기/인천
                       </button>
                       <button 
-                        onClick={() => setSelectedDistrict('seongsu')} 
-                        className={`filter-pill ${selectedDistrict === 'seongsu' ? 'active' : ''}`}
+                        onClick={() => setSelectedDistrict('busan')} 
+                        className={`filter-pill ${selectedDistrict === 'busan' ? 'active' : ''}`}
                       >
-                        성수/서울숲
+                        부산
                       </button>
                       <button 
-                        onClick={() => setSelectedDistrict('gangnam')} 
-                        className={`filter-pill ${selectedDistrict === 'gangnam' ? 'active' : ''}`}
+                        onClick={() => setSelectedDistrict('daegu')} 
+                        className={`filter-pill ${selectedDistrict === 'daegu' ? 'active' : ''}`}
                       >
-                        강남
+                        대구/경북
                       </button>
                       <button 
-                        onClick={() => setSelectedDistrict('yeouido')} 
-                        className={`filter-pill ${selectedDistrict === 'yeouido' ? 'active' : ''}`}
+                        onClick={() => setSelectedDistrict('daejeon')} 
+                        className={`filter-pill ${selectedDistrict === 'daejeon' ? 'active' : ''}`}
                       >
-                        여의도/한강
+                        대전/충청
+                      </button>
+                      <button 
+                        onClick={() => setSelectedDistrict('gwangju')} 
+                        className={`filter-pill ${selectedDistrict === 'gwangju' ? 'active' : ''}`}
+                      >
+                        광주/전라
+                      </button>
+                      <button 
+                        onClick={() => setSelectedDistrict('gangwon')} 
+                        className={`filter-pill ${selectedDistrict === 'gangwon' ? 'active' : ''}`}
+                      >
+                        강원/제주
                       </button>
                     </div>
 
@@ -615,7 +623,7 @@ function App() {
                       id="open-report-modal"
                     >
                       <Plus size={16} />
-                      <span>나만의 알뜰 데이트 스팟 제보하기</span>
+                      <span>나만의 가성비 데이트 스팟 제보하기</span>
                     </button>
                   </div>
 
@@ -922,7 +930,7 @@ function App() {
                   
                   <div className="board-header">
                     <div className="board-title-group">
-                      <h1 style={{ margin: '0' }} className="gradient-text">데이트 거지방 & 절약 위키</h1>
+                      <h1 style={{ margin: '0' }} className="gradient-text">데이트 꿀팁방 & 절약 위키</h1>
                       <p className="board-subtitle">커플들이 직접 밝히는 로맨틱하면서 지갑이 굳는 숨은 꼼수와 생활비 절약 팁 게시판입니다.</p>
                     </div>
                     <button 
@@ -968,93 +976,90 @@ function App() {
                             <button 
                               onClick={() => handleLikeTip(tip.id)}
                               className={`tip-like-btn ${hasLiked ? 'liked' : ''}`}
-                            >
-                              <ThumbsUp size={14} fill={hasLiked ? 'var(--primary)' : 'none'} />
-                              <span>{tip.likes}</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                </div>
-              </div>
-            )}
-
-            {/* VIEW 4: ABOUT PAGE */}
-            {activeTab === 'about' && (
-              <div className="container animate-fade-in-up">
-                <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'left' }} className="about-wrapper">
-                  <div className="glass-panel" style={{ padding: '40px' }}>
-                    <h1 className="gradient-text" style={{ fontSize: '2.2rem', marginTop: '0', marginBottom: '20px' }}>
-                      지갑은 가볍게, 사랑은 무겁게!<br />알뜰 데이트맵 프로젝트
-                    </h1>
-                    
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.8', marginBottom: '24px' }}>
-                      본 웹앱은 가성비 좋은 서민용 식당 제보 지도인 <strong>'거지맵(xn--v69ak0xskm.com)'</strong>을 벤치마킹하여 제작된 <strong>연인 전용 알뜰 데이트 플래너</strong>입니다.
-                      물가가 치솟는 고물가 시대에 연인과의 데이트가 매번 10만원 이상의 고비용 부담으로 다가오지 않도록, 검증된 감성적이면서 가성비 훌륭한 장소만을 매칭합니다.
-                    </p>
-
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '12px' }}>💡 핵심 서비스 기능</h3>
-                    <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                      <li><strong>가성비 테마 지도:</strong> 엄선된 서울의 5대 주요 핫플레이스(혜화, 홍대, 성수, 강남, 여의도)의 식당, 카페, 문화 공간, 숲길을 테마별로 확인합니다.</li>
-                      <li><strong>커플 가계부 코스 빌더:</strong> 원하는 스팟을 탭 한 번으로 골라 담아, 1일 풀코스 지출비용 및 일반 데이트 대비 세이브된 누적 절약금을 자동 계산합니다.</li>
-                      <li><strong>리얼 데이트 거지방:</strong> 익명의 커플들이 꽁꽁 감춰둔 무료 전시, 가성비 주말 패스, 할인권 혜택 등 날것 그대로의 알짜 생존형 데이트 꼼수들을 투명하게 나눕니다.</li>
-                      <li><strong>하이브리드 데이터베이스 연동:</strong> 중앙 Supabase DB 환경이 연동되면 글로벌 동기화로 전환되고, 키가 없을 땐 에러 없이 로컬 저장소(`localStorage`)로 자동 대응해 안전하게 구동됩니다.</li>
-                    </ul>
-
-                    {/* Database status widget */}
-                    <div className="glass-panel" style={{ padding: '20px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border)', margin: '20px 0' }}>
-                      <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '1rem', fontWeight: '700' }}>
-                        <Database size={18} color="var(--primary)" />
-                        <span>데이터베이스 연결 현황</span>
-                      </h4>
-                      {isSupabaseConfigured ? (
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                          🟢 **Supabase 실시간 중앙 서버 DB가 온라인 상태입니다.** 전 세계 모든 유저들이 익명 제보한 스팟과 데이트 꿀팁이 한 곳에 모여 즉시 저장 및 공유됩니다.
-                        </p>
-                      ) : (
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                          🟡 **안전 로컬 저장 모드로 작동 중입니다.** Vercel 설정 또는 로컬 환경에 Supabase 환경변수(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)를 추가해 주시면 자동으로 중앙 공유형 클라우드 플랫폼으로 즉시 업그레이드됩니다.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="couple-level-card" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--border)' }}>
-                      <div style={{ fontSize: '2rem' }}>💖</div>
-                      <div>
-                        <h4 style={{ fontWeight: '800' }}>"사랑은 지출액에 비례하지 않습니다."</h4>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>진정한 데이트의 가치는 비싼 파스타 식당이나 호텔 라운지가 아닌, 마주 앉아 나누는 진솔한 눈빛과 소소한 발걸음에 있습니다. 알뜰 데이트맵이 두 분의 실속 있고 로맨틱한 동행을 지원합니다!</p>
+                        >
+                          <ThumbsUp size={14} fill={hasLiked ? 'var(--primary)' : 'none'} />
+                          <span>{tip.likes}</span>
+                        </button>
                       </div>
                     </div>
-
-                    <div style={{ marginTop: '32px', textAlign: 'center' }}>
-                      <button onClick={() => setActiveTab('map')} className="btn btn-primary">
-                        <span>지금 바로 데이트 지도 시작하기</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            )}
-          </>
+
+            </div>
+          </div>
         )}
 
+        {/* VIEW 4: ABOUT PAGE */}
+        {activeTab === 'about' && (
+          <div className="container animate-fade-in-up">
+            <div style={{ maxWidth: '800px', margin: '48px auto', textAlign: 'left' }} className="about-wrapper">
+              <div className="glass-panel" style={{ padding: '40px' }}>
+                <h1 className="gradient-text" style={{ fontSize: '2.2rem', marginTop: '0', marginBottom: '20px' }}>
+                  지갑은 가볍게, 사랑은 무겁게!<br />알뜰 데이트맵 프로젝트
+                </h1>
+                
+                <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.8', marginBottom: '24px' }}>
+                  본 웹앱은 연인들을 위한 <strong>전국 단위 가성비 데이트 플래너 & 지도 플랫폼</strong>입니다.
+                  물가가 치솟는 고물가 시대에 연인과의 데이트가 매번 10만원 이상의 고비용 부담으로 다가오지 않도록, 검증된 감성적이면서 가성비 훌륭한 전국의 실속 명소들을 매칭합니다.
+                </p>
+
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '12px' }}>💡 핵심 서비스 기능</h3>
+                <ul style={{ paddingLeft: '20px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                  <li><strong>전국 가성비 테마 지도:</strong> 엄선된 전국 7대 광역 시도(서울, 경기/인천, 부산, 대구/경북, 대전/충청, 광주/전라, 강원/제주)의 식당, 카페, 체험관, 수변공원을 지도 위에서 바로 탐색합니다.</li>
+                  <li><strong>커플 가계부 코스 빌더:</strong> 원하는 스팟을 탭 한 번으로 골라 담아, 1일 풀코스 지출비용 및 일반 데이트 대비 세이브된 누적 절약금을 자동 계산합니다.</li>
+                  <li><strong>리얼 데이트 꿀팁방:</strong> 익명의 커플들이 꽁꽁 감춰둔 무료 전시, 가성비 주말 패스, 할인권 혜택 등 날것 그대로의 알짜 생존형 데이트 꼼수들을 투명하게 나눕니다.</li>
+                  <li><strong>하이브리드 데이터베이스 연동:</strong> 중앙 Supabase DB 환경이 연동되면 글로벌 동기화로 전환되고, 키가 없을 땐 에러 없이 로컬 저장소(`localStorage`)로 자동 대응해 안전하게 구동됩니다.</li>
+                </ul>
+
+                {/* Database status widget */}
+                <div className="glass-panel" style={{ padding: '20px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border)', margin: '20px 0' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '1rem', fontWeight: '700' }}>
+                    <Database size={18} color="var(--primary)" />
+                    <span>데이터베이스 연결 현황</span>
+                  </h4>
+                  {isSupabaseConfigured ? (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      🟢 **Supabase 실시간 중앙 서버 DB가 온라인 상태입니다.** 전 세계 모든 유저들이 익명 제보한 스팟과 데이트 꿀팁이 한 곳에 모여 즉시 저장 및 공유됩니다.
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      🟡 **안전 로컬 저장 모드로 작동 중입니다.** Vercel 설정 또는 로컬 환경에 Supabase 환경변수(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)를 추가해 주시면 자동으로 중앙 공유형 클라우드 플랫폼으로 즉시 업그레이드됩니다.
+                    </p>
+                  )}
+                </div>
+
+                <div className="couple-level-card" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--border)' }}>
+                  <div style={{ fontSize: '2rem' }}>💖</div>
+                  <div>
+                    <h4 style={{ fontWeight: '800' }}>"사랑은 지출액에 비례하지 않습니다."</h4>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>진정한 데이트의 가치는 비싼 파스타 식당이나 호텔 라운지가 아닌, 마주 앉아 나누는 진솔한 눈빛과 소소한 발걸음에 있습니다. 알뜰 데이트맵이 두 분의 실속 있고 로맨틱한 동행을 지원합니다!</p>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '32px', textAlign: 'center' }}>
+                  <button onClick={() => setActiveTab('map')} className="btn btn-primary">
+                    <span>지금 바로 데이트 지도 시작하기</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+          </>
+        )}
       </main>
 
       {/* Footer Section */}
       <footer className="footer">
         <div className="container footer-content">
           <div>
-            <strong>알뜰 데이트맵</strong> | 가성비 명소 위키 © 2026. Inspired by 거지맵.
+            <strong>알뜰 데이트맵</strong> | 전국 커플들을 위한 가성비 명소 위키 © 2026.
           </div>
           <div style={{ display: 'flex', gap: '16px', fontWeight: '600' }} className="footer-links">
             <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('about'); }}>소개</a>
             <span>•</span>
             <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
-            <span>•</span>
-            <a href="https://xn--v69ak0xskm.com/" target="_blank" rel="noreferrer">원조 거지맵</a>
           </div>
         </div>
       </footer>
@@ -1081,7 +1086,7 @@ function App() {
                   <label className="form-label">장소 이름 *</label>
                   <input 
                     type="text" 
-                    placeholder="예: 혜화 돌쇠아저씨" 
+                    placeholder="예: 경포호 자전거길" 
                     className="form-control"
                     required
                     value={reportForm.name}
@@ -1114,11 +1119,13 @@ function App() {
                       onChange={(e) => setReportForm({ ...reportForm, district: e.target.value })}
                       id="report-spot-district"
                     >
-                      <option value="hyehwa">혜화/대학로</option>
-                      <option value="hongdae">홍대/신촌</option>
-                      <option value="seongsu">성수/서울숲</option>
-                      <option value="gangnam">강남</option>
-                      <option value="yeouido">여의도/한강</option>
+                      <option value="seoul">서울</option>
+                      <option value="gyeonggi">경기/인천</option>
+                      <option value="busan">부산</option>
+                      <option value="daegu">대구/경북</option>
+                      <option value="daejeon">대전/충청</option>
+                      <option value="gwangju">광주/전라</option>
+                      <option value="gangwon">강원/제주</option>
                     </select>
                   </div>
                 </div>
@@ -1127,7 +1134,7 @@ function App() {
                   <label className="form-label">1인당 예상 예산 (원) *</label>
                   <input 
                     type="number" 
-                    placeholder="예: 9900" 
+                    placeholder="예: 3000" 
                     className="form-control"
                     required
                     value={reportForm.costPerPerson}
@@ -1140,7 +1147,7 @@ function App() {
                   <label className="form-label">한줄 장소 설명 *</label>
                   <textarea 
                     rows="2"
-                    placeholder="예: 1만원 화덕 피자세트로 맛과 아늑함을 다 챙기는 역사 깊은 가성비 레스토랑" 
+                    placeholder="예: 호수 조망을 바라보며 시원하게 3,000원에 달리는 가성비 자전거 일주 코스" 
                     className="form-control"
                     required
                     value={reportForm.description}
@@ -1153,7 +1160,7 @@ function App() {
                   <label className="form-label">나만의 데이트 꿀팁 (선택)</label>
                   <textarea 
                     rows="2"
-                    placeholder="예: 웨이팅이 심하니 주말은 피하시고, 치즈 떡볶이는 라면 추가가 꿀맛입니다." 
+                    placeholder="예: 공공 자전거 대여소를 이용하시면 사설 대여 샵보다 무려 5배 저렴하게 자전거를 빌릴 수 있습니다." 
                     className="form-control"
                     value={reportForm.tip}
                     onChange={(e) => setReportForm({ ...reportForm, tip: e.target.value })}
@@ -1182,7 +1189,7 @@ function App() {
           <div className="glass-panel modal-content" onClick={(e) => e.stopPropagation()}>
             
             <div className="modal-header">
-              <h2 className="modal-title">데이트 거지방 익명 꿀팁 공유</h2>
+              <h2 className="modal-title">데이트 꿀팁방 익명 꿀팁 공유</h2>
               <button onClick={() => setShowAddTipModal(false)} className="modal-close">
                 <X size={18} />
               </button>

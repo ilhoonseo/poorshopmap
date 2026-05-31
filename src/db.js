@@ -13,7 +13,7 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// 초기 거지방 게시글 프리셋
+// 초기 데이트 꿀팁 게시글 프리셋
 const INITIAL_TIPS = [
   {
     id: 'tip-1',
@@ -109,7 +109,7 @@ export const dbSaveSpot = async (newSpot) => {
 };
 
 /* ==========================================================================
-   2. 데이트 거지방 꿀팁 (Frugal Tips) CRUD Operations
+   2. 데이트 꿀팁 (Frugal Tips) CRUD Operations
    ========================================================================== */
 
 export const dbGetTips = async () => {
